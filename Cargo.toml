@@ -1,3 +1,10 @@
 [workspace]
 members = ["crates/protocol"]
 resolver = "2"
+
+[workspace.dependencies]
+tonic = { version = "0.12" }
+tonic-build = "0.12.0"
+prost = "0.13"
+prost-types = "0.13"
+
