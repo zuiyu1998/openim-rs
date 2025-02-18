@@ -6,5 +6,7 @@ edition = "2021"
 [dependencies]
 abi = { path = "../abi" }
 storage = { path = "../storage" }
+tools = { path = "../tools" }
 
 serde = { workspace = true }
+tracing = { workspace = true, features = ["log"]}

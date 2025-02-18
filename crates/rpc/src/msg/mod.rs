@@ -8,17 +8,19 @@ use abi::{
     protocol::pb::{
         constant::{constant, MsgContentType, MsgSessionType},
         conversation_util, msg_processor,
-        openim_msg::{SendMsgReq, SendMsgResp},
+        openim_msg::{msg_server::MsgServer, SendMsgReq, SendMsgResp},
         openim_sdkws::MsgData,
     },
     rand::{self, Rng},
+    tonic::transport::Server,
     utils::time_util,
     ErrorKind, Result,
 };
 use serde::{Deserialize, Serialize};
 use storage::msg::{BaseMsgDatabase, MsgDatabase};
+use tools::discover::RegisterCenter;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MsgConfig {
     pub share: Share,
     pub rpc: RpcConfig,
@@ -32,7 +34,29 @@ pub struct MsgRpcServer {
 }
 
 impl MsgRpcServer {
-    pub async fn start(config: Arc<MsgConfig>) -> Result<Self> {
+    pub async fn start(config: &MsgConfig, register_center: Box<dyn RegisterCenter>) -> Result<()> {
+        let config_arc = Arc::new(config.clone());
+
+        let msg_rpc_server = MsgRpcServer::new(config_arc).await?;
+
+        register_center.register_service(&config.rpc).await?;
+        tracing::info!("<open-im-rpc-msg> rpc service register to service register center");
+
+        let msg_server = MsgServer::new(msg_rpc_server);
+
+        tracing::info!(
+            "<open-im-rpc-msg> rpc service started at {}",
+            config.rpc.rpc_server_url()
+        );
+
+        Server::builder()
+            .add_service(msg_server)
+            .serve(config.rpc.rpc_server_url().parse().unwrap())
+            .await?;
+        Ok(())
+    }
+
+    pub async fn new(config: Arc<MsgConfig>) -> Result<Self> {
         let database = BaseMsgDatabase::new_kafka(&config.kafka).await?;
 
         Ok(Self {

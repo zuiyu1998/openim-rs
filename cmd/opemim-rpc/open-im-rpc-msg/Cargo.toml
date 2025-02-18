@@ -6,3 +6,6 @@ edition = "2021"
 [dependencies]
 abi = { path = "../../../crates/abi" }
 rpc = { path = "../../../crates/rpc" }
+tools = { path = "../../../crates/tools" }
+
+tracing-subscriber = { workspace = true }

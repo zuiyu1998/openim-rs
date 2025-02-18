@@ -14,8 +14,16 @@ tonic = { version = "0.12" }
 tonic-build = "0.12.0"
 prost = "0.13"
 prost-types = "0.13"
+# error
 thiserror = "1.0"
+# serde
 serde = { version = "1.0" }
 serde_json = { version = "1.0" }
+# log
 tracing = { version = "0.1" }
+tracing-subscriber = { version = "0.3"}
+# runtimne
 tokio = { version = "1.43" }
+# nacos
+nacos_rust_client = { git = "https://github.com/heqingpan/nacos_rust_client.git"  }
+nacos-tonic-discover = { git = "https://github.com/heqingpan/nacos_rust_client.git" }

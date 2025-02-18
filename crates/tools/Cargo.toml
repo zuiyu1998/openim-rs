@@ -8,3 +8,7 @@ abi = { path = "../abi" }
 
 thiserror = { workspace = true }
 tracing = { workspace = true }
+
+# nacos
+nacos_rust_client = { workspace = true  }
+nacos-tonic-discover = { workspace = true }

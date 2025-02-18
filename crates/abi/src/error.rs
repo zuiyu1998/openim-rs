@@ -1,9 +1,9 @@
+use protocol::prost::EncodeError as ProstEncodeError;
+use protocol::tonic::transport::Error as TonicTransportError;
 use protocol::tonic::Status;
+use rdkafka::error::KafkaError;
 use serde_json::Error as SerdeJsonError;
 use thiserror::Error;
-use protocol::prost::EncodeError as ProstEncodeError;
-use rdkafka::error::KafkaError;
-use protocol::tonic::transport::Error as TonicTransportError;
 
 #[derive(Debug, Error)]
 pub enum ErrorKind {
@@ -25,6 +25,8 @@ pub enum Error {
     KafkaError(#[from] KafkaError),
     #[error("tonic transport error: {0}")]
     TonicTransportError(#[from] TonicTransportError),
+    #[error("nacos error: {0}")]
+    NacosError(String),
 }
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;

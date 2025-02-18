@@ -1,32 +1,28 @@
-use std::sync::Arc;
-
 use abi::{
-    config::{KafkaConfig, RpcConfig, Share},
-    protocol::pb::openim_msg::msg_server::MsgServer,
+    config::{KafkaConfig, NacosConfig, RpcConfig, Share},
     tokio,
-    tonic::transport::Server,
     utils::config_util::load_config_with_file_name,
     Result,
 };
 
 use rpc::msg::{MsgConfig, MsgRpcServer};
+use tools::discover::nacos::new_nacos_register_center;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+
+    tracing_subscriber::fmt().init();
+
     let kafka: KafkaConfig = load_config_with_file_name("config/kafka.yaml");
     let share: Share = load_config_with_file_name("config/share.yaml");
     let rpc: RpcConfig = load_config_with_file_name("config/openim-rpc-msg.yaml");
 
-    let config = Arc::new(MsgConfig { kafka, share, rpc });
+    let config = MsgConfig { kafka, share, rpc };
 
-    let msg_rpc_server = MsgRpcServer::start(config.clone()).await?;
+    let nacos: NacosConfig = load_config_with_file_name("config/nacos.yaml");
+    let server_center = new_nacos_register_center(&nacos);
 
-    let msg_server = MsgServer::new(msg_rpc_server);
-
-    Server::builder()
-        .add_service(msg_server)
-        .serve(config.rpc.rpc_server_url().parse().unwrap())
-        .await?;
+    MsgRpcServer::start(&config, server_center).await?;
 
     Ok(())
 }
