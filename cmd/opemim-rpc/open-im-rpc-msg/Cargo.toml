@@ -1,0 +1,8 @@
+[package]
+name = "open-im-rpc-msg"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+abi = { path = "../../../crates/abi" }
+rpc = { path = "../../../crates/rpc" }

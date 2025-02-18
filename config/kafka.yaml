@@ -1,0 +1,4 @@
+connect_timeout: 16
+to_redis_topic: toRedis
+timeout: 16
+broker: localhost:19094

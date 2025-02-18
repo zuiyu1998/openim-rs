@@ -271,7 +271,7 @@ pub struct UserSendMsgResp {
     #[prost(int64, tag = "3")]
     pub send_time: i64,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, ::prost::Message)]
 pub struct MsgData {
     #[prost(string, tag = "1")]
     pub send_id: ::prost::alloc::string::String,
@@ -325,7 +325,7 @@ pub struct PushMessages {
     #[prost(map = "string, message", tag = "2")]
     pub notification_msgs: ::std::collections::HashMap<::prost::alloc::string::String, PullMsgs>,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, ::prost::Message)]
 pub struct OfflinePushInfo {
     #[prost(string, tag = "1")]
     pub title: ::prost::alloc::string::String,

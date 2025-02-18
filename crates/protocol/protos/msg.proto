@@ -408,59 +408,7 @@ message GetLastMessageResp {
 }
 
 service msg {
-  //获取最小最大seq（包括用户的，以及指定群组的）
-  rpc GetMaxSeq(openim_sdkws.GetMaxSeqReq) returns (openim_sdkws.GetMaxSeqResp);
-  //获取会话列表的最大seq
-  rpc GetMaxSeqs(GetMaxSeqsReq) returns (SeqsInfoResp);
-  //获取会话列表已读的最大seq
-  rpc GetHasReadSeqs(GetHasReadSeqsReq) returns (SeqsInfoResp);
-  //获取最新消息
-  rpc GetMsgByConversationIDs(GetMsgByConversationIDsReq) returns (GetMsgByConversationIDsResp);
-  rpc GetConversationMaxSeq(GetConversationMaxSeqReq) returns (GetConversationMaxSeqResp);
-  //拉取历史消息（包括用户的，以及指定群组的）
-  rpc PullMessageBySeqs(openim_sdkws.PullMessageBySeqsReq) returns (openim_sdkws.PullMessageBySeqsResp);
-  rpc GetSeqMessage(GetSeqMessageReq) returns (GetSeqMessageResp);
-  rpc SearchMessage(SearchMessageReq) returns (SearchMessageResp);
   //发送消息
   rpc SendMsg(SendMsgReq) returns (SendMsgResp);
-
-  rpc SetUserConversationsMinSeq(SetUserConversationsMinSeqReq) returns (SetUserConversationsMinSeqResp);
-
-  // 全量清空指定会话消息 重置min seq 比最大seq大1
-  rpc ClearConversationsMsg(ClearConversationsMsgReq) returns (ClearConversationsMsgResp);
-  // 删除用户全部消息 重置min seq 比最大seq大1
-  rpc UserClearAllMsg(UserClearAllMsgReq) returns (UserClearAllMsgResp);
-  // 用户标记删除部分消息by Seq
-  rpc DeleteMsgs(DeleteMsgsReq) returns (DeleteMsgsResp);
-  // seq物理删除消息
-  rpc DeleteMsgPhysicalBySeq(DeleteMsgPhysicalBySeqReq) returns (DeleteMsgPhysicalBySeqResp);
-  // 物理删除消息by 时间
-  rpc DeleteMsgPhysical(DeleteMsgPhysicalReq) returns (DeleteMsgPhysicalResp);
-
-  //设置消息是否发送成功-针对api发送的消息
-  rpc SetSendMsgStatus(SetSendMsgStatusReq) returns (SetSendMsgStatusResp);
-  //获取消息发送状态
-  rpc GetSendMsgStatus(GetSendMsgStatusReq) returns (GetSendMsgStatusResp);
-  rpc RevokeMsg(RevokeMsgReq) returns (RevokeMsgResp);
-  // mark as read
-  rpc MarkMsgsAsRead(MarkMsgsAsReadReq) returns (MarkMsgsAsReadResp);
-  rpc MarkConversationAsRead(MarkConversationAsReadReq) returns (MarkConversationAsReadResp);
-  rpc SetConversationHasReadSeq(SetConversationHasReadSeqReq) returns (SetConversationHasReadSeqResp);
-
-  rpc GetConversationsHasReadAndMaxSeq(GetConversationsHasReadAndMaxSeqReq) returns (GetConversationsHasReadAndMaxSeqResp);
-  rpc GetActiveUser(GetActiveUserReq) returns (GetActiveUserResp);
-  rpc GetActiveGroup(GetActiveGroupReq) returns (GetActiveGroupResp);
-  rpc GetServerTime(GetServerTimeReq) returns (GetServerTimeResp);
-
-  rpc ClearMsg(ClearMsgReq) returns (ClearMsgResp);
-  rpc DestructMsgs(DestructMsgsReq) returns (DestructMsgsResp);
-
-  rpc GetActiveConversation(GetActiveConversationReq) returns (GetActiveConversationResp);
-
-  rpc AppendStreamMsg(AppendStreamMsgReq) returns (AppendStreamMsgResp);
-  rpc GetStreamMsg(GetStreamMsgReq) returns (GetStreamMsgResp);
-  rpc SetUserConversationMaxSeq(SetUserConversationMaxSeqReq) returns (SetUserConversationMaxSeqResp);
-  rpc SetUserConversationMinSeq(SetUserConversationMinSeqReq) returns (SetUserConversationMinSeqResp);
-  rpc GetLastMessageSeqByTime(GetLastMessageSeqByTimeReq) returns (GetLastMessageSeqByTimeResp);
-  rpc GetLastMessage(GetLastMessageReq) returns (GetLastMessageResp);
 }
+
