@@ -10,5 +10,6 @@ pub use rand;
 pub use bytes;
 pub use rdkafka;
 pub use tokio;
+pub use tools;
 
 pub use error::*;

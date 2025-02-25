@@ -1,4 +1,4 @@
-connect_timeout: 16
+connect_timeout: 5000
 to_redis_topic: toRedis
-timeout: 16
-broker: 192.168.0.103:9092
+timeout: 3000
+broker: 192.168.0.230:9092

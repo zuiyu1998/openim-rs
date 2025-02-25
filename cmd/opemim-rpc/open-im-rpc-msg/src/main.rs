@@ -1,16 +1,10 @@
-use abi::{
-    config::{KafkaConfig, NacosConfig, RpcConfig, Share},
-    tokio,
-    utils::config_util::load_config_with_file_name,
-    Result,
-};
+use abi::{config::Share, tokio, utils::config_util::load_config_with_file_name, Result};
 
 use rpc::msg::{MsgConfig, MsgRpcServer};
-use tools::discover::nacos::new_nacos_register_center;
+use tools::{discover::{nacos::new_nacos_register_center, NacosConfig, RpcConfig}, mq_producer::kafka::KafkaConfig};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-
     tracing_subscriber::fmt().init();
 
     let kafka: KafkaConfig = load_config_with_file_name("config/kafka.yaml");

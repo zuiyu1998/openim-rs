@@ -17,6 +17,7 @@ dependencies = [
  "serde_json",
  "thiserror 1.0.69",
  "tokio",
+ "tools",
 ]
 
 [[package]]
@@ -1211,6 +1212,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "msg-transfer"
+version = "0.1.0"
+dependencies = [
+ "abi",
+ "tracing",
+]
+
+[[package]]
 name = "multimap"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2283,10 +2292,15 @@ dependencies = [
 name = "tools"
 version = "0.1.0"
 dependencies = [
- "abi",
+ "async-trait",
  "nacos-tonic-discover",
  "nacos_rust_client",
+ "prost",
+ "rdkafka",
+ "serde",
  "thiserror 1.0.69",
+ "tokio",
+ "tonic",
  "tracing",
 ]
 

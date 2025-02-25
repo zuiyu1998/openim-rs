@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "cmd/opemim-rpc/open-im-rpc-msg",
-    "crates/abi",
+    "crates/abi", "crates/msg-transfer",
     "crates/protocol",
     "crates/rpc",
     "crates/storage",
@@ -27,3 +27,5 @@ tokio = { version = "1.43" }
 # nacos
 nacos_rust_client = { git = "https://github.com/heqingpan/nacos_rust_client.git"  }
 nacos-tonic-discover = { git = "https://github.com/heqingpan/nacos_rust_client.git" }
+
+async-trait = { version = "0.1" }

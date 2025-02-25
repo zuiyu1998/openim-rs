@@ -3,7 +3,7 @@ mod rpc;
 use std::sync::Arc;
 
 use abi::{
-    config::{KafkaConfig, RpcConfig, Share},
+    config::Share,
     encrypt::md5,
     protocol::pb::{
         constant::{constant, MsgContentType, MsgSessionType},
@@ -13,12 +13,13 @@ use abi::{
     },
     rand::{self, Rng},
     tonic::transport::Server,
+    tools::mq_producer::kafka::KafkaConfig,
     utils::time_util,
     ErrorKind, Result,
 };
 use serde::{Deserialize, Serialize};
 use storage::msg::{BaseMsgDatabase, MsgDatabase};
-use tools::discover::RegisterCenter;
+use tools::discover::{RegisterCenter, RpcConfig};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MsgConfig {

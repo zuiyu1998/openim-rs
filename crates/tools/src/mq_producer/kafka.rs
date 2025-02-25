@@ -1,26 +1,37 @@
-use std::time::Duration;
+use super::{MQError, MQProducer};
+use std::{marker::PhantomData, time::Duration};
 
-use super::MQProducer;
-use abi::{
-    config::KafkaConfig,
-    protocol::{pb::openim_sdkws::MsgData, prost::Message, tonic::async_trait},
-    rdkafka::{
-        admin::{AdminClient, AdminOptions, NewTopic, TopicReplication},
-        client::DefaultClientContext,
-        error::KafkaError,
-        producer::{FutureProducer, FutureRecord},
-        ClientConfig,
-    },
-    Result,
+use rdkafka::{
+    admin::{AdminClient, AdminOptions, NewTopic, TopicReplication},
+    client::DefaultClientContext,
+    error::KafkaError,
+    producer::{FutureProducer, FutureRecord},
+    ClientConfig,
 };
+use serde::{Deserialize, Serialize};
 use tracing::info;
+use prost::Message;
+use async_trait::async_trait;
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct KafkaConfig {
+    pub name: Option<String>,
+    pub password: Option<String>,
+    pub connect_timeout: u16,
+    pub timeout: u16,
+    pub to_redis_topic: String,
+    pub broker: String,
+}
 
 pub struct KafkaBuilder<'a> {
     pub config: &'a KafkaConfig,
 }
 
 impl<'a> KafkaBuilder<'a> {
-    pub async fn get_future_producer(&self, topic_name: &str) -> Result<FutureProducer> {
+    pub async fn get_future_producer(
+        &self,
+        topic_name: &str,
+    ) -> Result<FutureProducer, KafkaError> {
         let producer: FutureProducer = ClientConfig::new()
             .set("bootstrap.servers", &self.config.broker)
             .set("message.timeout.ms", &self.config.timeout.to_string())
@@ -45,7 +56,11 @@ impl<'a> KafkaBuilder<'a> {
         Ok(producer)
     }
 
-    pub async fn ensure_topic_exists(topic_name: &str, brokers: &str, timeout: u16) -> Result<()> {
+    pub async fn ensure_topic_exists(
+        topic_name: &str,
+        brokers: &str,
+        timeout: u16,
+    ) -> Result<(), KafkaError> {
         let admin_client: AdminClient<DefaultClientContext> = ClientConfig::new()
             .set("bootstrap.servers", brokers)
             .set("socket.timeout.ms", timeout.to_string())
@@ -75,24 +90,31 @@ impl<'a> KafkaBuilder<'a> {
     }
 }
 
-pub struct KafkaProducer {
+pub struct KafkaProducer<T> {
     topic: String,
     producer: FutureProducer,
+    _marker: PhantomData<T>
 }
 
-impl KafkaProducer {
-    pub async fn new(config: &KafkaConfig) -> Result<Self> {
+impl<T> KafkaProducer<T> {
+    pub async fn new(config: &KafkaConfig) -> Result<Self, MQError> {
         let builder = KafkaBuilder { config };
         let producer = builder.get_future_producer(&config.to_redis_topic).await?;
 
-        Ok(Self { topic: config.to_redis_topic.to_string(), producer })
-
+        Ok(Self {
+            topic: config.to_redis_topic.to_string(),
+            producer,
+            _marker: Default::default()
+        })
     }
 }
 
 #[async_trait]
-impl MQProducer for KafkaProducer {
-    async fn msg_to_mq(&self, key: &str, msg_data: &MsgData) -> Result<()> {
+impl<T: Message + 'static> MQProducer for KafkaProducer<T> {
+
+    type Data = T;
+
+    async fn msg_to_mq(&self, key: &str, msg_data: &T) -> Result<(), MQError> {
         let mut payload: Vec<u8> = vec![];
         msg_data.encode(&mut payload)?;
 

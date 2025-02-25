@@ -1,9 +1,9 @@
-use protocol::prost::EncodeError as ProstEncodeError;
 use protocol::tonic::transport::Error as TonicTransportError;
 use protocol::tonic::Status;
-use rdkafka::error::KafkaError;
 use serde_json::Error as SerdeJsonError;
 use thiserror::Error;
+
+use tools::{discover::DiscoverError, mq_producer::MQError};
 
 #[derive(Debug, Error)]
 pub enum ErrorKind {
@@ -19,14 +19,12 @@ pub enum Error {
     Kind(#[from] ErrorKind),
     #[error("serde json error: {0}")]
     SerdeJsonError(#[from] SerdeJsonError),
-    #[error("prost encode error: {0}")]
-    ProstEncodeError(#[from] ProstEncodeError),
-    #[error("kafka error: {0}")]
-    KafkaError(#[from] KafkaError),
     #[error("tonic transport error: {0}")]
     TonicTransportError(#[from] TonicTransportError),
-    #[error("nacos error: {0}")]
-    NacosError(String),
+    #[error("discover error: {0}")]
+    DiscoverError(#[from] DiscoverError),
+    #[error("mq error: {0}")]
+    MQError(#[from] MQError),
 }
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;

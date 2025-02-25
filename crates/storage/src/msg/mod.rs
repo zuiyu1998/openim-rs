@@ -1,8 +1,11 @@
-use abi::{config::KafkaConfig, protocol::pb::openim_sdkws::MsgData, tonic::async_trait, Result};
-use tools::mq_producer::{kafka::KafkaProducer, MQProducer};
+use abi::{protocol::pb::openim_sdkws::MsgData, tonic::async_trait, Result};
+use tools::mq_producer::{
+    kafka::{KafkaConfig, KafkaProducer},
+    MQProducer,
+};
 
 pub struct BaseMsgDatabase {
-    producer: Box<dyn MQProducer>,
+    producer: Box<dyn MQProducer<Data = MsgData>>,
 }
 
 impl BaseMsgDatabase {

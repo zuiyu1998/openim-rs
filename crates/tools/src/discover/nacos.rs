@@ -1,17 +1,14 @@
 use std::sync::Arc;
 
-use abi::{
-    config::{NacosConfig, RpcConfig},
-    tonic::{async_trait, transport::Channel},
-    Error, Result,
-};
 use nacos_rust_client::client::{
     naming_client::{Instance, ServiceInstanceKey},
     ClientBuilder, NamingClient,
 };
 use nacos_tonic_discover::TonicDiscoverFactory;
+use tonic::transport::Channel;
 
-use super::RegisterCenter;
+use super::{RegisterCenter, NacosConfig, RpcConfig, DiscoverError};
+use async_trait::async_trait;
 
 pub struct NacosRegisterCenter(Arc<NamingClient>);
 
@@ -34,7 +31,7 @@ impl NacosRegisterCenter {
 #[async_trait]
 impl RegisterCenter for NacosRegisterCenter {
     //注册rpc服务
-    async fn register_service(&self, config: &RpcConfig) -> Result<()> {
+    async fn register_service(&self, config: &RpcConfig) -> Result<(), DiscoverError> {
         let instance = Instance::new_simple(
             &config.host,
             config.port as u32,
@@ -48,7 +45,7 @@ impl RegisterCenter for NacosRegisterCenter {
     }
 
     //获取tonic 客户端
-    async fn get_grpc_clint(&self, config: &RpcConfig) -> Result<Channel> {
+    async fn get_grpc_clint(&self, config: &RpcConfig) -> Result<Channel, DiscoverError> {
         let discover_factory = TonicDiscoverFactory::new(self.0.clone());
 
         let service_key = ServiceInstanceKey::new(&config.service_name, &config.group_name);
@@ -56,7 +53,7 @@ impl RegisterCenter for NacosRegisterCenter {
         let channel = discover_factory
             .build_service_channel(service_key.clone())
             .await
-            .map_err(|e| Error::NacosError(e.to_string()))?;
+            .map_err(|e| DiscoverError::NacosError(e.to_string()))?;
 
         Ok(channel)
     }

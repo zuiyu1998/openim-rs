@@ -5,6 +5,8 @@ edition = "2021"
 
 [dependencies]
 protocol = { path = "../protocol" }
+tools = { path = "../tools" }
+
 
 thiserror = { workspace = true }
 serde_json = { workspace = true }

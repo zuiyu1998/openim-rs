@@ -4,11 +4,18 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-abi = { path = "../abi" }
-
+# error
 thiserror = { workspace = true }
+# log
 tracing = { workspace = true }
-
 # nacos
-nacos_rust_client = { workspace = true  }
+nacos_rust_client = { workspace = true }
 nacos-tonic-discover = { workspace = true }
+# network
+tokio = { workspace = true, features = ["full"] }
+async-trait = { workspace = true }
+# grpc
+tonic = { workspace = true }
+serde = { workspace = true }
+rdkafka = { version = "0.36.2", features = ["cmake-build"] }
+prost = { workspace = true }
