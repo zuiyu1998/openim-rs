@@ -1,11 +1,5 @@
-use std::{
-    collections::HashMap,
-    hash::{DefaultHasher, Hasher},
-    mem::swap,
-    time::Duration,
-};
+use std::{collections::HashMap, error::Error, mem::swap, time::Duration};
 
-use thiserror::Error;
 use tokio::{
     self,
     sync::mpsc::{self, Receiver, Sender},
@@ -18,12 +12,8 @@ use async_trait::async_trait;
 pub struct BatcherConfig {
     max_count: usize,
     duration_ms: u64,
-    worker: usize,
     buffer_size: usize,
 }
-
-#[derive(Debug, Error)]
-pub enum BatcherError {}
 
 pub trait BatcherData: 'static + Send + Sync {
     fn key(&self) -> String;
@@ -33,19 +23,35 @@ pub struct PayloadData<Data> {
     payload: Vec<Data>,
 }
 
+impl<Data> PayloadData<Data> {
+    pub fn get_data(&self) -> &Vec<Data> {
+        &self.payload
+    }
+}
+
 impl<Data> Default for PayloadData<Data> {
     fn default() -> Self {
         PayloadData { payload: vec![] }
     }
 }
 
-pub struct Batcher<Handler: BatcherHandler<Data = Data>, Data: BatcherData> {
+pub struct Batcher<Data, E, Handler>
+where
+    Data: BatcherData,
+    E: Error,
+    Handler: BatcherHandler<Data = Data, Error = E>,
+{
     data_sender: Option<Sender<Data>>,
     handler: Handler,
     config: BatcherConfig,
 }
 
-impl<Handler: BatcherHandler<Data = Data>, Data: BatcherData> Batcher<Handler, Data> {
+impl<Data, Handler, E> Batcher<Data, E, Handler>
+where
+    Data: BatcherData,
+    E: Error,
+    Handler: BatcherHandler<Data = Data, Error = E>,
+{
     pub async fn put(&mut self, data: Data) {
         if let Some(sender) = self.data_sender.as_mut() {
             sender.send(data).await.unwrap();
@@ -61,7 +67,6 @@ impl<Handler: BatcherHandler<Data = Data>, Data: BatcherData> Batcher<Handler, D
             self.config.max_count,
             self.config.duration_ms,
             data_receiver,
-            self.config.worker,
         );
 
         tokio::spawn(async move {
@@ -74,27 +79,8 @@ pub struct Scheduler<Handler: BatcherHandler<Data = Data>, Data: BatcherData> {
     max_count: usize,
     ticker: Interval,
     data_receiver: Receiver<Data>,
-    values: HashMap<usize, PayloadData<Data>>,
+    values: HashMap<String, PayloadData<Data>>,
     count: usize,
-    worker: usize,
-}
-
-fn get_new_values<Data>(worker: usize) -> HashMap<usize, PayloadData<Data>> {
-    let mut values: HashMap<usize, PayloadData<Data>> = HashMap::default();
-
-    for id in 0..worker {
-        values.insert(id, PayloadData::default());
-    }
-
-    values
-}
-
-fn get_hash(key: &str, worker: usize) -> usize {
-    let mut hasher = DefaultHasher::default();
-    hasher.write(key.as_bytes());
-    let value = hasher.finish();
-
-    (value % worker as u64) as usize
 }
 
 impl<Handler: BatcherHandler<Data = Data>, Data: BatcherData> Scheduler<Handler, Data> {
@@ -103,16 +89,14 @@ impl<Handler: BatcherHandler<Data = Data>, Data: BatcherData> Scheduler<Handler,
         max_count: usize,
         duration_ms: u64,
         data_receiver: Receiver<Data>,
-        worker: usize,
     ) -> Self {
         Scheduler {
             handler,
             max_count,
             ticker: interval(Duration::from_millis(duration_ms)),
             data_receiver,
-            values: get_new_values(worker),
+            values: Default::default(),
             count: 0,
-            worker,
         }
     }
 
@@ -124,10 +108,8 @@ impl<Handler: BatcherHandler<Data = Data>, Data: BatcherData> Scheduler<Handler,
     pub async fn on_receiver_data(&mut self, data: Data) {
         self.count += 1;
 
-        let index = get_hash(&data.key(), self.worker);
-
         self.values
-            .entry(index)
+            .entry(data.key())
             .or_insert(PayloadData::default())
             .payload
             .push(data);
@@ -136,15 +118,15 @@ impl<Handler: BatcherHandler<Data = Data>, Data: BatcherData> Scheduler<Handler,
     pub async fn done(&mut self) {
         self.reset();
 
-        let mut values = get_new_values::<Data>(self.worker);
+        let mut values: HashMap<String, PayloadData<Data>> = Default::default();
 
         swap(&mut values, &mut self.values);
 
-        for (id, payload) in values.into_iter() {
+        for (key, payload) in values.into_iter() {
             let handler_clone = self.handler.clone();
 
             tokio::spawn(async move {
-                if let Err(e) = handler_clone.handle(id, payload).await {
+                if let Err(e) = handler_clone.handle(key, payload).await {
                     tracing::error!("handler error: {}", e);
                 }
             });
@@ -177,18 +159,23 @@ impl<Handler: BatcherHandler<Data = Data>, Data: BatcherData> Scheduler<Handler,
 #[async_trait]
 pub trait BatcherHandler: Clone + Send + Sync + 'static {
     type Data: BatcherData;
+    type Error: Error;
 
     async fn handle(
         &self,
-        channel_id: usize,
+        key: String,
         payload: PayloadData<Self::Data>,
-    ) -> Result<(), BatcherError>;
+    ) -> Result<(), Self::Error>;
 }
 
 mod test {
 
-    use super::{BatcherData, BatcherError, BatcherHandler, PayloadData};
+    use super::{BatcherData, BatcherHandler, PayloadData};
     use async_trait::async_trait;
+    use thiserror::Error;
+
+    #[derive(Debug, Error)]
+    pub enum BatcherError {}
 
     #[derive(Debug)]
     pub struct TestBatcherData(String);
@@ -205,14 +192,15 @@ mod test {
     #[async_trait]
     impl BatcherHandler for TestBatcherHandler {
         type Data = TestBatcherData;
+        type Error = BatcherError;
 
         async fn handle(
             &self,
-            channel_id: usize,
+            channel_id: String,
             payload: PayloadData<Self::Data>,
         ) -> Result<(), BatcherError> {
             for data in payload.payload.into_iter() {
-                println!("channel_id: {}, data: {:?}", channel_id, data);
+                println!("key: {}, data: {:?}", channel_id, data);
             }
 
             Ok(())
@@ -229,7 +217,6 @@ mod test {
             max_count: 10,
             duration_ms: 500,
             buffer_size: 100,
-            worker: 10,
         };
 
         let mut batcher = Batcher {

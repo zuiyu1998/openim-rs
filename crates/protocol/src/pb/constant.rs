@@ -13,6 +13,7 @@ pub mod constant {
     pub const IS_PERSISTENT: &str = "persistent";
     pub const IS_HISTORY: &str = "history";
     pub const IS_NOT_NOTIFICATION: &str = "isNotNotification";
+    pub const IS_SEND_MSG: &str = "IsSendMsg";
 
     pub const SINGLE_CHAT_TYPE: i32 = 1;
 }
@@ -35,6 +36,7 @@ impl From<i32> for MsgSessionType {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum MsgContentType {
     Text,
     Picture,

@@ -2,8 +2,10 @@ use protocol::tonic::transport::Error as TonicTransportError;
 use protocol::tonic::Status;
 use serde_json::Error as SerdeJsonError;
 use thiserror::Error;
-
+use protocol::prost::DecodeError;
 use tools::{discover::DiscoverError, mq_producer::MQError};
+use redis::RedisError;
+use mongodb::error::Error as MongodbError;
 
 #[derive(Debug, Error)]
 pub enum ErrorKind {
@@ -25,6 +27,12 @@ pub enum Error {
     DiscoverError(#[from] DiscoverError),
     #[error("mq error: {0}")]
     MQError(#[from] MQError),
+    #[error("prost decode error: {0}")]
+    DecodeError(#[from] DecodeError),
+    #[error("redis error: {0}")]
+    RedisError(#[from] RedisError),
+    #[error("mongodb error: {0}")]
+    MongodbError(#[from] MongodbError),
 }
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;

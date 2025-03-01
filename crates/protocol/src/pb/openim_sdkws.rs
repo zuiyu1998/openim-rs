@@ -772,7 +772,7 @@ pub struct ConversationHasReadTips {
     #[prost(int64, tag = "4")]
     pub unread_count_time: i64,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, ::prost::Message)]
 pub struct NotificationElem {
     #[prost(string, tag = "1")]
     pub detail: ::prost::alloc::string::String,
@@ -850,7 +850,7 @@ pub struct DeleteMsgsTips {
     #[prost(int64, repeated, tag = "3")]
     pub seqs: ::prost::alloc::vec::Vec<i64>,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, ::prost::Message)]
 pub struct MarkAsReadTips {
     #[prost(string, tag = "1")]
     pub mark_as_read_user_id: ::prost::alloc::string::String,

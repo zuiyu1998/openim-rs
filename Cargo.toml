@@ -29,3 +29,6 @@ nacos_rust_client = { git = "https://github.com/heqingpan/nacos_rust_client.git"
 nacos-tonic-discover = { git = "https://github.com/heqingpan/nacos_rust_client.git" }
 
 async-trait = { version = "0.1" }
+
+redis = "0.29"
+mongodb = "3.2.1"

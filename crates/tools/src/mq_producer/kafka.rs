@@ -1,17 +1,18 @@
 use super::{MQError, MQProducer};
 use std::{marker::PhantomData, time::Duration};
 
+use async_trait::async_trait;
+use prost::Message;
 use rdkafka::{
     admin::{AdminClient, AdminOptions, NewTopic, TopicReplication},
     client::DefaultClientContext,
+    consumer::{Consumer, StreamConsumer},
     error::KafkaError,
     producer::{FutureProducer, FutureRecord},
     ClientConfig,
 };
 use serde::{Deserialize, Serialize};
 use tracing::info;
-use prost::Message;
-use async_trait::async_trait;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct KafkaConfig {
@@ -19,15 +20,56 @@ pub struct KafkaConfig {
     pub password: Option<String>,
     pub connect_timeout: u16,
     pub timeout: u16,
-    pub to_redis_topic: String,
     pub broker: String,
+    pub consumer: KafkaConsumerConfig,
+    pub producer: KafkaProducerConfig,
 }
 
-pub struct KafkaBuilder<'a> {
-    pub config: &'a KafkaConfig,
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct KafkaConsumerConfig {
+    pub session_timeout: u16,
+    pub auto_offset_reset: String,
 }
 
-impl<'a> KafkaBuilder<'a> {
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct KafkaProducerConfig {
+    pub acks: String,
+    pub max_retry: u16,
+    pub retry_interval: u16,
+}
+
+pub struct KafkaBuilder {
+    pub config: KafkaConfig,
+}
+
+impl KafkaBuilder {
+    pub async fn get_stream_consumer(
+        &self,
+        topic_name: &str,
+    ) -> Result<StreamConsumer, KafkaError> {
+        let consumer: StreamConsumer = ClientConfig::new()
+            .set("bootstrap.servers", &self.config.broker)
+            .set("enable.auto.commit", "false")
+            .set(
+                "session.timeout.ms",
+                &self.config.consumer.session_timeout.to_string(),
+            )
+            .set("socket.timeout.ms", self.config.connect_timeout.to_string())
+            .set("enable.partition.eof", "false")
+            .set(
+                "auto.offset.reset",
+                self.config.consumer.auto_offset_reset.to_string(),
+            )
+            .create()
+            .expect("Consumer creation failed");
+
+        consumer
+            .subscribe(&[topic_name])
+            .expect("Can't subscribe to specified topic");
+
+        Ok(consumer)
+    }
+
     pub async fn get_future_producer(
         &self,
         topic_name: &str,
@@ -39,14 +81,14 @@ impl<'a> KafkaBuilder<'a> {
                 "socket.timeout.ms",
                 &self.config.connect_timeout.to_string(),
             )
-            // .set("acks", config.kafka.producer.acks.clone())
+            .set("acks", &self.config.producer.acks.clone())
             // make sure the message is sent exactly once
             .set("enable.idempotence", "true")
-            // .set("retries", config.kafka.producer.max_retry.to_string())
-            // .set(
-            //     "retry.backoff.ms",
-            //     config.kafka.producer.retry_interval.to_string(),
-            // )
+            .set("retries", &self.config.producer.max_retry.to_string())
+            .set(
+                "retry.backoff.ms",
+                &self.config.producer.retry_interval.to_string(),
+            )
             .create()
             .expect("Producer creation error");
 
@@ -93,25 +135,26 @@ impl<'a> KafkaBuilder<'a> {
 pub struct KafkaProducer<T> {
     topic: String,
     producer: FutureProducer,
-    _marker: PhantomData<T>
+    _marker: PhantomData<T>,
 }
 
 impl<T> KafkaProducer<T> {
-    pub async fn new(config: &KafkaConfig) -> Result<Self, MQError> {
-        let builder = KafkaBuilder { config };
-        let producer = builder.get_future_producer(&config.to_redis_topic).await?;
+    pub async fn new(config: &KafkaConfig, topic_name: &str) -> Result<Self, MQError> {
+        let builder = KafkaBuilder {
+            config: config.clone(),
+        };
+        let producer = builder.get_future_producer(topic_name).await?;
 
         Ok(Self {
-            topic: config.to_redis_topic.to_string(),
+            topic: topic_name.to_string(),
             producer,
-            _marker: Default::default()
+            _marker: Default::default(),
         })
     }
 }
 
 #[async_trait]
 impl<T: Message + 'static> MQProducer for KafkaProducer<T> {
-
     type Data = T;
 
     async fn msg_to_mq(&self, key: &str, msg_data: &T) -> Result<(), MQError> {

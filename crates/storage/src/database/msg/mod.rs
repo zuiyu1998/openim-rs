@@ -1,4 +1,4 @@
-use abi::{protocol::pb::openim_sdkws::MsgData, tonic::async_trait, Result};
+use abi::{async_trait::async_trait, protocol::pb::openim_sdkws::MsgData, Result};
 use tools::mq_producer::{
     kafka::{KafkaConfig, KafkaProducer},
     MQProducer,
@@ -9,8 +9,8 @@ pub struct BaseMsgDatabase {
 }
 
 impl BaseMsgDatabase {
-    pub async fn new_kafka(config: &KafkaConfig) -> Result<BaseMsgDatabase> {
-        let producer = KafkaProducer::new(config).await?;
+    pub async fn new_kafka(config: &KafkaConfig, topic_name: &str) -> Result<BaseMsgDatabase> {
+        let producer = KafkaProducer::new(config, topic_name).await?;
         Ok(BaseMsgDatabase {
             producer: Box::new(producer),
         })

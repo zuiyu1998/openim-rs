@@ -3,11 +3,12 @@ mod rpc;
 use std::sync::Arc;
 
 use abi::{
-    config::Share,
+    config::{MQTopcis, Share},
     encrypt::md5,
     protocol::pb::{
         constant::{constant, MsgContentType, MsgSessionType},
-        conversation_util, msg_processor,
+        conversation_util,
+        msg_processor::MsgOptions,
         openim_msg::{msg_server::MsgServer, SendMsgReq, SendMsgResp},
         openim_sdkws::MsgData,
     },
@@ -18,7 +19,7 @@ use abi::{
     ErrorKind, Result,
 };
 use serde::{Deserialize, Serialize};
-use storage::msg::{BaseMsgDatabase, MsgDatabase};
+use storage::database::msg::{BaseMsgDatabase, MsgDatabase};
 use tools::discover::{RegisterCenter, RpcConfig};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -26,6 +27,7 @@ pub struct MsgConfig {
     pub share: Share,
     pub rpc: RpcConfig,
     pub kafka: KafkaConfig,
+    pub topics: MQTopcis,
 }
 
 #[derive(Clone)]
@@ -58,7 +60,8 @@ impl MsgRpcServer {
     }
 
     pub async fn new(config: Arc<MsgConfig>) -> Result<Self> {
-        let database = BaseMsgDatabase::new_kafka(&config.kafka).await?;
+        let database =
+            BaseMsgDatabase::new_kafka(&config.kafka, &config.topics.to_redis_topic).await?;
 
         Ok(Self {
             config,
@@ -70,10 +73,10 @@ impl MsgRpcServer {
 impl MsgRpcServer {
     pub async fn modify_message_by_user_message_receive_opt(
         &self,
-        msg: &mut MsgData,
-        user_id: &str,
-        conversation_id: &str,
-        session_type: i32,
+        _msg: &mut MsgData,
+        _user_id: &str,
+        _conversation_id: &str,
+        _session_type: i32,
     ) -> Result<bool> {
         Ok(true)
     }
@@ -112,7 +115,9 @@ impl MsgRpcServer {
         let recv_id = msg_data.recv_id.clone();
         let send_id = msg_data.recv_id.clone();
 
-        let is_notification = msg_processor::is_notification_by_msg(&msg_data);
+        let msg_options = MsgOptions::from_msg_data(&mut msg_data);
+
+        let is_notification = msg_options.is_notification();
 
         if !is_notification {
             send = self
