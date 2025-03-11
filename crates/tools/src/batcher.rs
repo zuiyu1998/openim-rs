@@ -21,17 +21,12 @@ pub trait BatcherData: 'static + Send + Sync {
 
 pub struct PayloadData<Data> {
     payload: Vec<Data>,
+    pub key: String,
 }
 
 impl<Data> PayloadData<Data> {
     pub fn get_data(&self) -> &Vec<Data> {
         &self.payload
-    }
-}
-
-impl<Data> Default for PayloadData<Data> {
-    fn default() -> Self {
-        PayloadData { payload: vec![] }
     }
 }
 
@@ -110,7 +105,10 @@ impl<Handler: BatcherHandler<Data = Data>, Data: BatcherData> Scheduler<Handler,
 
         self.values
             .entry(data.key())
-            .or_insert(PayloadData::default())
+            .or_insert_with(|| PayloadData {
+                key: data.key(),
+                payload: vec![],
+            })
             .payload
             .push(data);
     }

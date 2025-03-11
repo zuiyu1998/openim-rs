@@ -1,11 +1,11 @@
+use mongodb::error::Error as MongodbError;
+use protocol::prost::DecodeError;
 use protocol::tonic::transport::Error as TonicTransportError;
 use protocol::tonic::Status;
+use redis::RedisError;
 use serde_json::Error as SerdeJsonError;
 use thiserror::Error;
-use protocol::prost::DecodeError;
 use tools::{discover::DiscoverError, mq_producer::MQError};
-use redis::RedisError;
-use mongodb::error::Error as MongodbError;
 
 #[derive(Debug, Error)]
 pub enum ErrorKind {
@@ -13,6 +13,12 @@ pub enum ErrorKind {
     MsgDataIsNil,
     #[error("unknown sessionType")]
     UnknowedSessionType,
+    #[error("size is small")]
+    SizeIsSmall,
+    #[error("malloc unknown state: {0}")]
+    MallocUnknownState(i64),
+    #[error("malloc seq waiting for lock timeout")]
+    MallocLockTimeout,
 }
 
 #[derive(Debug, Error)]

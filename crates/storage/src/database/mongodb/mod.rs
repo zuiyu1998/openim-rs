@@ -1,4 +1,5 @@
 pub mod seq_user;
+pub mod seq_conversation;
 
 use abi::{
     mongodb::{Client, Database},
@@ -14,6 +15,7 @@ pub struct MongoDbConfig {
     pub password: String,
     pub database: String,
     pub seq_user_name: String,
+    pub seq_conversation_name: String,
 }
 
 impl MongoDbConfig {

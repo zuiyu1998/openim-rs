@@ -1,27 +1,8 @@
 use std::sync::Arc;
 
-use crate::database::seq_user::SeqUserDataBase;
+use crate::{database::seq_user::SeqUserDataBase, cache::seq_user::SeqUserCache};
 
-use super::SeqUserCache;
 use abi::{async_trait::async_trait, redis, Result};
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct RedisConfig {
-    host: String,
-    port: u16,
-}
-
-impl RedisConfig {
-    pub fn url(&self) -> String {
-        format!("redis://{}:{}/", self.host, self.port)
-    }
-}
-
-pub fn new_redis_client(config: &RedisConfig) -> Result< redis::Client> {
-    let clinet = redis::Client::open(config.url())?;
-    Ok(clinet)
-}
 
 pub struct SeqUserRedis {
     _client: redis::Client,

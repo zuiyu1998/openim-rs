@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use super::openim_sdkws::MsgData;
+
 pub mod constant {
 
     pub const NOTIFICATION_BEGIN: i32 = 1000;
@@ -23,6 +25,36 @@ pub enum MsgSessionType {
     NotificationChatType,
     ReadGroupChatType,
     Unknowed,
+}
+
+impl MsgSessionType {
+    pub fn get_chat_conversation_id_by_msg(&self, msg: &MsgData) -> String {
+        match self {
+            MsgSessionType::SingleChatType => {
+                let mut temp = vec![msg.recv_id.clone(), msg.send_id.clone()];
+                temp.sort();
+
+                format!("si_{}", temp.join("_"))
+            }
+            _ => {
+                todo!()
+            }
+        }
+    }
+
+    pub fn get_notification_conversation_id_by_msg(&self, msg: &MsgData) -> String {
+        match self {
+            MsgSessionType::SingleChatType => {
+                let mut temp = vec![msg.recv_id.clone(), msg.send_id.clone()];
+                temp.sort();
+
+                format!("n_{}", temp.join("_"))
+            }
+            _ => {
+                todo!()
+            }
+        }
+    }
 }
 
 impl From<i32> for MsgSessionType {
