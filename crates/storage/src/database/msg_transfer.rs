@@ -8,12 +8,10 @@ use abi::{
     },
     Result,
 };
+use entity::msg::MsgInfoModel;
 use tools::mq_producer::MQProducer;
 
-use crate::{
-    cache::{msg::MsgCache, SeqConversationCache, SeqUserCache},
-    model::MsgInfoModel,
-};
+use crate::cache::{msg::MsgCache, SeqConversationCache, SeqUserCache};
 
 pub struct CommonMsgTransferDatabase {
     seq_user: Arc<dyn SeqUserCache>,

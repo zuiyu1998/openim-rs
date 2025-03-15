@@ -1,13 +1,11 @@
-use crate::{
-    cache::{msg::MsgCache, redis::consts::get_msg_cache_key},
-    model::MsgInfoModel,
-};
+use crate::cache::{msg::MsgCache, redis::consts::get_msg_cache_key};
 
 use abi::{
     async_trait::async_trait,
     redis::{self, AsyncCommands},
     serde_json, Result,
 };
+use entity::msg::MsgInfoModel;
 
 const MSG_CACHE_TIMEOUT: i64 = 86400;
 

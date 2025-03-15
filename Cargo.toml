@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "cmd/opemim-rpc/open-im-rpc-msg",
-    "crates/abi", "crates/msg-transfer",
+    "crates/abi", "crates/entity", "crates/msg-transfer",
     "crates/protocol",
     "crates/rpc",
     "crates/storage",

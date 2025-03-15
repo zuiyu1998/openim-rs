@@ -2,6 +2,18 @@ use abi::protocol::pb::openim_sdkws::MsgData;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct MsgDocModel {
+    pub doc_id: String,
+    pub msgs: MsgInfoModel,
+}
+
+impl MsgDocModel {
+    pub fn table_name() -> &'static str {
+        "msg"
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct MsgDataModel {
     pub seq: i64,
 }

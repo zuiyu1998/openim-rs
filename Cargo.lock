@@ -654,6 +654,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "entity"
+version = "0.1.0"
+dependencies = [
+ "abi",
+ "serde",
+]
+
+[[package]]
 name = "enum-as-inner"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2646,6 +2654,7 @@ name = "storage"
 version = "0.1.0"
 dependencies = [
  "abi",
+ "entity",
  "serde",
  "tools",
  "tracing",

@@ -1,6 +1,6 @@
 use abi::{async_trait::async_trait, Result};
 
-use crate::model::MsgInfoModel;
+use entity::msg::MsgInfoModel;
 
 #[async_trait]
 pub trait MsgCache: Send + Sync + 'static {

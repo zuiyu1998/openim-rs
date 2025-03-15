@@ -1,5 +1,6 @@
 pub mod seq_user;
 pub mod seq_conversation;
+mod msg;
 
 use abi::{
     mongodb::{Client, Database},
