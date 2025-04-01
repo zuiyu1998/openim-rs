@@ -18,6 +18,9 @@ pub mod constant {
     pub const IS_SEND_MSG: &str = "IsSendMsg";
 
     pub const SINGLE_CHAT_TYPE: i32 = 1;
+
+    pub const MSG_STATUS_SEND_SUCCESS: i32 = 3;
+    pub const MSG_STATUS_SENDING: i32 = 1;
 }
 
 pub enum MsgSessionType {

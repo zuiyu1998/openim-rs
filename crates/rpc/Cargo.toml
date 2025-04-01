@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 abi = { path = "../abi" }
-storage = { path = "../storage" }
+openim-storage = { path = "../storage" }
 tools = { path = "../tools" }
 
 serde = { workspace = true }

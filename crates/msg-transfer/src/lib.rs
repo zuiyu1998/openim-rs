@@ -1,29 +1,72 @@
 mod online_history_redis_consumer_handler;
+mod online_msg_to_mongo_handler;
 
 use abi::{
-    error::Error,
-    protocol::{pb::openim_sdkws::MsgData, prost::Message},
+    config::MQTopcis,
     tokio,
     tools::{
-        batcher::{Batcher, BatcherData},
-        mq_producer::rdkafka::{consumer::StreamConsumer, Message as KafkaMessage},
+        batcher::{Batcher, BatcherConfig},
+        mq_producer::{
+            kafka::{KafkaBuilder, KafkaConfig},
+            rdkafka::consumer::StreamConsumer,
+        },
     },
     Result,
 };
-use online_history_redis_consumer_handler::OnlineHistoryRedisConsumerHandler;
+use online_history_redis_consumer_handler::{handle_redis_message, HistoryBatcher};
+use online_msg_to_mongo_handler::{handle_mongo_message, OnlineHistoryMongoConsumerHandler};
 
-type HistoryBatcher = Batcher<ConsumerMessage, Error, OnlineHistoryRedisConsumerHandler>;
+pub struct MsgTransferSeviceConfig {
+    kafka: KafkaConfig,
+    topisc: MQTopcis,
+    batcher: BatcherConfig,
+}
 
 pub struct MsgTransferSevice {
     history_consumer: StreamConsumer,
+    //历史消息mongo存储
+    history_mongo_consumer: StreamConsumer,
     batcher: HistoryBatcher,
+    history_mongo_consumer_handler: OnlineHistoryMongoConsumerHandler,
 }
 
 impl MsgTransferSevice {
-    pub async fn start(self) -> Result<()> {
+    pub fn new(
+        history_consumer: StreamConsumer,
+        history_mongo_consumer: StreamConsumer,
+        batcher: HistoryBatcher,
+        history_mongo_consumer_handler: OnlineHistoryMongoConsumerHandler,
+    ) -> Self {
+        Self {
+            history_consumer,
+            history_mongo_consumer,
+            batcher,
+            history_mongo_consumer_handler,
+        }
+    }
+
+    pub async fn start(config: &MsgTransferSeviceConfig) -> Result<()> {
+        let kafka_builder = KafkaBuilder::new(&config.kafka);
+
+        let history_consumer = kafka_builder
+            .get_stream_consumer(&config.topisc.to_redis_topic)
+            .await?;
+
+        let history_mongo_consumer = kafka_builder
+            .get_stream_consumer(&config.topisc.to_mongo_topic)
+            .await?;
+
+        //    let batcher = Batcher::new(&config.batcher, handler);
+
+        todo!()
+    }
+
+    pub async fn run(self) -> Result<()> {
         let MsgTransferSevice {
             history_consumer,
             mut batcher,
+            history_mongo_consumer_handler,
+            history_mongo_consumer,
         } = self;
 
         batcher.start().await;
@@ -32,66 +75,10 @@ impl MsgTransferSevice {
             handle_redis_message(batcher, history_consumer).await;
         });
 
+        tokio::spawn(async move {
+            handle_mongo_message(history_mongo_consumer_handler, history_mongo_consumer).await;
+        });
+
         Ok(())
-    }
-}
-
-pub async fn handle_redis_message(mut batcher: HistoryBatcher, history_consumer: StreamConsumer) {
-    loop {
-        match history_consumer.recv().await {
-            Err(e) => {
-                tracing::error!("history_consumer recv error: {}", e);
-            }
-            Ok(m) => {
-                let key = match m.key() {
-                    None => {
-                        tracing::warn!("history_consumer message key not found");
-                        continue;
-                    }
-                    Some(key) => String::from_utf8_lossy(key).to_string(),
-                };
-
-                let bytes: Vec<u8> = match m.payload_view::<[u8]>() {
-                    None => {
-                        tracing::warn!("history_consumer message key not found");
-                        continue;
-                    }
-                    Some(bytes) => match bytes {
-                        Err(_) => {
-                            tracing::warn!("history_consumer message payload not found");
-                            continue;
-                        }
-
-                        Ok(bytes) => bytes.to_vec(),
-                    },
-                };
-
-                batcher.put(ConsumerMessage { key, bytes }).await;
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct ContextMessge {
-    pub msg_data: MsgData,
-}
-
-impl ContextMessge {
-    pub fn from_consumer_message(msg: &ConsumerMessage) -> Result<Self> {
-        let msg_data = MsgData::decode(msg.bytes.as_slice())?;
-
-        Ok(Self { msg_data })
-    }
-}
-
-pub struct ConsumerMessage {
-    key: String,
-    bytes: Vec<u8>,
-}
-
-impl BatcherData for ConsumerMessage {
-    fn key(&self) -> String {
-        self.key.clone()
     }
 }

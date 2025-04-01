@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MQTopcis {
     pub to_redis_topic: String,
+    pub to_mongo_topic: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

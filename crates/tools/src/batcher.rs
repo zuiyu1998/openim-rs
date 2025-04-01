@@ -47,6 +47,14 @@ where
     E: Error,
     Handler: BatcherHandler<Data = Data, Error = E>,
 {
+    pub fn new(config: &BatcherConfig, handler: Handler) -> Self {
+        Self {
+            data_sender: None,
+            handler,
+            config: config.clone(),
+        }
+    }
+
     pub async fn put(&mut self, data: Data) {
         if let Some(sender) = self.data_sender.as_mut() {
             sender.send(data).await.unwrap();

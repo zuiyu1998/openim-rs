@@ -1,0 +1,11 @@
+[package]
+name = "openim-msg-transfer"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+abi = { path = "../../crates/abi" }
+rpc = { path = "../../crates/rpc" }
+tools = { path = "../../crates/tools" }
+
+tracing-subscriber = { workspace = true }

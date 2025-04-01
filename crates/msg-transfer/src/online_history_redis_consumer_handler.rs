@@ -3,18 +3,84 @@ use std::{collections::HashMap, sync::Arc};
 use abi::{
     async_trait::async_trait,
     error::Error,
-    protocol::pb::{
-        constant::{MsgContentType, MsgSessionType},
-        msg_processor::{self, MsgOptions},
-        openim_sdkws::{MarkAsReadTips, MsgData, NotificationElem},
+    protocol::{
+        pb::{
+            constant::{MsgContentType, MsgSessionType},
+            msg_processor::{self, MsgOptions},
+            openim_sdkws::{MarkAsReadTips, MsgData, NotificationElem},
+        },
+        prost::Message as ProstMessage,
     },
     serde_json,
-    tools::batcher::{BatcherHandler, PayloadData},
+    tools::{
+        batcher::{Batcher, BatcherData, BatcherHandler, PayloadData},
+        mq_producer::rdkafka::{consumer::StreamConsumer, Message},
+    },
     Result,
 };
-use storage::database::msg_transfer::MsgTransferDatabase;
+use openim_storage::controller::msg_transfer::MsgTransferDatabase;
 
-use crate::{ConsumerMessage, ContextMessge};
+pub type HistoryBatcher = Batcher<ConsumerMessage, Error, OnlineHistoryRedisConsumerHandler>;
+
+#[derive(Debug, Clone)]
+pub struct ContextMessge {
+    pub msg_data: MsgData,
+}
+
+impl ContextMessge {
+    pub fn from_consumer_message(msg: &ConsumerMessage) -> Result<Self> {
+        let msg_data = MsgData::decode(msg.bytes.as_slice())?;
+
+        Ok(Self { msg_data })
+    }
+}
+
+pub struct ConsumerMessage {
+    key: String,
+    bytes: Vec<u8>,
+}
+
+impl BatcherData for ConsumerMessage {
+    fn key(&self) -> String {
+        self.key.clone()
+    }
+}
+
+pub async fn handle_redis_message(mut batcher: HistoryBatcher, history_consumer: StreamConsumer) {
+    loop {
+        match history_consumer.recv().await {
+            Err(e) => {
+                tracing::error!("history_consumer recv error: {}", e);
+            }
+            Ok(m) => {
+                let key = match m.key() {
+                    None => {
+                        tracing::warn!("history_consumer message key not found");
+                        continue;
+                    }
+                    Some(key) => String::from_utf8_lossy(key).to_string(),
+                };
+
+                let bytes: Vec<u8> = match m.payload_view::<[u8]>() {
+                    None => {
+                        tracing::warn!("history_consumer message key not found");
+                        continue;
+                    }
+                    Some(bytes) => match bytes {
+                        Err(_) => {
+                            tracing::warn!("history_consumer message payload not found");
+                            continue;
+                        }
+
+                        Ok(bytes) => bytes.to_vec(),
+                    },
+                };
+
+                batcher.put(ConsumerMessage { key, bytes }).await;
+            }
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct OnlineHistoryRedisConsumerHandler {
@@ -139,10 +205,10 @@ impl OnlineHistoryRedisConsumerHandler {
         storage_msg_list: Vec<ContextMessge>,
         not_storage_msg_list: Vec<ContextMessge>,
     ) {
-        tracing::info!("Handle storage msg");
+        tracing::info!("handle storage msg");
 
         for msg in storage_msg_list.iter() {
-            tracing::debug!("Handle storage msg, msg is: {:?}", msg.msg_data);
+            tracing::debug!("handle storage msg, msg is: {:?}", msg.msg_data);
         }
 
         self.to_push_topic(key, conversation_id, not_storage_msg_list)
@@ -220,7 +286,7 @@ impl BatcherHandler for OnlineHistoryRedisConsumerHandler {
     async fn handle(&self, key: String, payload: PayloadData<Self::Data>) -> Result<(), Error> {
         let ctx_messages = get_context_messges(&payload);
         tracing::info!(
-            "Msg arrived, msgList length: {}, key: {}",
+            "msg arrived, msgList length: {}, key: {}",
             ctx_messages.len(),
             key
         );

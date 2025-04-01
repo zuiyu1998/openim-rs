@@ -1,7 +1,10 @@
 [workspace]
 members = [
     "cmd/opemim-rpc/open-im-rpc-msg",
-    "crates/abi", "crates/entity", "crates/msg-transfer",
+    "cmd/openim-msg-transfer",
+    "crates/abi",
+    "crates/entity",
+    "crates/msg-transfer",
     "crates/protocol",
     "crates/rpc",
     "crates/storage",
@@ -21,14 +24,15 @@ serde = { version = "1.0" }
 serde_json = { version = "1.0" }
 # log
 tracing = { version = "0.1" }
-tracing-subscriber = { version = "0.3"}
+tracing-subscriber = { version = "0.3" }
 # runtimne
 tokio = { version = "1.43" }
 # nacos
-nacos_rust_client = { git = "https://github.com/heqingpan/nacos_rust_client.git"  }
+nacos_rust_client = { git = "https://github.com/heqingpan/nacos_rust_client.git" }
 nacos-tonic-discover = { git = "https://github.com/heqingpan/nacos_rust_client.git" }
 
 async-trait = { version = "0.1" }
 
 redis = "0.29"
 mongodb = "3.2.1"
+bson = "2"

@@ -19,7 +19,7 @@ use abi::{
     ErrorKind, Result,
 };
 use serde::{Deserialize, Serialize};
-use storage::controller::msg::{BaseMsgDatabase, MsgDatabase};
+use openim_storage::controller::msg::{BaseMsgDatabase, MsgDatabase};
 use tools::discover::{RegisterCenter, RpcConfig};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

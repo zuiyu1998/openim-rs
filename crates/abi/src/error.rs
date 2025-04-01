@@ -5,10 +5,12 @@ use protocol::tonic::Status;
 use redis::RedisError;
 use serde_json::Error as SerdeJsonError;
 use thiserror::Error;
-use tools::{discover::DiscoverError, mq_producer::MQError};
+use tools::{discover::DiscoverError, mq_producer::{rdkafka::error::KafkaError, MQError}};
 
 #[derive(Debug, Error)]
 pub enum ErrorKind {
+    #[error("msgData is empty")]
+    MsgDataIsEmpty,
     #[error("msgData is nil")]
     MsgDataIsNil,
     #[error("unknown sessionType")]
@@ -39,6 +41,19 @@ pub enum Error {
     RedisError(#[from] RedisError),
     #[error("mongodb error: {0}")]
     MongodbError(#[from] MongodbError),
+    #[error("kafka error: {0}")]
+    KafkaError(#[from] KafkaError),
+}
+
+impl Error {
+    pub fn is_mongodb_duplicate_key_error(&self) -> bool {
+        match self {
+            Error::MongodbError(_e) => {
+                todo!()
+            }
+            _ => false,
+        }
+    }
 }
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;

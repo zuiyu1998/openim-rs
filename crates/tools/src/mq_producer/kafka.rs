@@ -39,10 +39,16 @@ pub struct KafkaProducerConfig {
 }
 
 pub struct KafkaBuilder {
-    pub config: KafkaConfig,
+    config: KafkaConfig,
 }
 
 impl KafkaBuilder {
+    pub fn new(config: &KafkaConfig) -> Self {
+        Self {
+            config: config.clone(),
+        }
+    }
+
     pub async fn get_stream_consumer(
         &self,
         topic_name: &str,
