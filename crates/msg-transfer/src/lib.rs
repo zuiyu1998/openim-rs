@@ -1,46 +1,61 @@
 mod online_history_redis_consumer_handler;
 mod online_msg_to_mongo_handler;
 
+use std::sync::Arc;
+
 use abi::{
     config::MQTopcis,
     tokio,
     tools::{
         batcher::{Batcher, BatcherConfig},
         mq_producer::{
-            kafka::{KafkaBuilder, KafkaConfig},
+            kafka::{KafkaBuilder, KafkaConfig, KafkaProducer},
             rdkafka::consumer::StreamConsumer,
         },
     },
     Result,
 };
-use online_history_redis_consumer_handler::{handle_redis_message, HistoryBatcher};
+use online_history_redis_consumer_handler::OnlineHistoryRedisConsumerHandler;
 use online_msg_to_mongo_handler::{handle_mongo_message, OnlineHistoryMongoConsumerHandler};
+use openim_storage::{
+    cache::redis::{
+        msg::MsgCacheRedis, new_redis_client, seq_conversation::SeqConversationRedis, RedisConfig,
+        SeqUserRedis,
+    },
+    controller::msg_transfer::CommonMsgTransferDatabase,
+    database::mongodb::{
+        msg::MsgRepoMongodb, new_mongo_database, seq_conversation::SeqConversationMongodb,
+        seq_user::SeqUserMongodb, MongoDbConfig,
+    },
+};
 
 pub struct MsgTransferSeviceConfig {
     kafka: KafkaConfig,
     topisc: MQTopcis,
     batcher: BatcherConfig,
+    redis: RedisConfig,
+    mongo: MongoDbConfig,
 }
 
 pub struct MsgTransferSevice {
-    history_consumer: StreamConsumer,
+    history_redis_consumer: StreamConsumer,
     //历史消息mongo存储
     history_mongo_consumer: StreamConsumer,
-    batcher: HistoryBatcher,
+    history_redis_consumer_handler: OnlineHistoryRedisConsumerHandler,
     history_mongo_consumer_handler: OnlineHistoryMongoConsumerHandler,
 }
 
 impl MsgTransferSevice {
     pub fn new(
-        history_consumer: StreamConsumer,
+        history_redis_consumer: StreamConsumer,
         history_mongo_consumer: StreamConsumer,
-        batcher: HistoryBatcher,
+        history_redis_consumer_handler: OnlineHistoryRedisConsumerHandler,
         history_mongo_consumer_handler: OnlineHistoryMongoConsumerHandler,
     ) -> Self {
         Self {
-            history_consumer,
+            history_redis_consumer,
             history_mongo_consumer,
-            batcher,
+            history_redis_consumer_handler,
             history_mongo_consumer_handler,
         }
     }
@@ -48,7 +63,7 @@ impl MsgTransferSevice {
     pub async fn start(config: &MsgTransferSeviceConfig) -> Result<()> {
         let kafka_builder = KafkaBuilder::new(&config.kafka);
 
-        let history_consumer = kafka_builder
+        let history_redis_consumer = kafka_builder
             .get_stream_consumer(&config.topisc.to_redis_topic)
             .await?;
 
@@ -56,23 +71,73 @@ impl MsgTransferSevice {
             .get_stream_consumer(&config.topisc.to_mongo_topic)
             .await?;
 
-        //    let batcher = Batcher::new(&config.batcher, handler);
+        let batcher = Batcher::new(&config.batcher);
 
-        todo!()
+        let redis_client = new_redis_client(&config.redis)?;
+
+        let database = new_mongo_database(&config.mongo).await?;
+
+        let seq_user_database =
+            Arc::new(SeqUserMongodb::new(&database, &config.mongo.seq_user_name).await?);
+        let seq_conversation_database = Arc::new(
+            SeqConversationMongodb::new(&database, &config.mongo.seq_conversation_name).await?,
+        );
+
+        let seq_user_cache = Arc::new(SeqUserRedis::new(redis_client.clone(), seq_user_database));
+        let seq_conversation_cache = Arc::new(SeqConversationRedis::new(
+            redis_client.clone(),
+            seq_conversation_database,
+        ));
+
+        let msg_cache = Arc::new(MsgCacheRedis::new(redis_client.clone()));
+
+        let producer_to_push =
+            Box::new(KafkaProducer::new(&config.kafka, &config.topisc.to_push_topic).await?);
+        let producer_to_mongo =
+            Box::new(KafkaProducer::new(&config.kafka, &config.topisc.to_mongo_topic).await?);
+
+        let msg_repo = Arc::new(MsgRepoMongodb::new(&database));
+
+        let msg_transfer_database = Arc::new(CommonMsgTransferDatabase::new(
+            seq_user_cache,
+            seq_conversation_cache,
+            msg_cache,
+            producer_to_push,
+            producer_to_mongo,
+            msg_repo,
+        ));
+
+        let history_redis_consumer_handler =
+            OnlineHistoryRedisConsumerHandler::new(msg_transfer_database.clone(), batcher);
+
+        let history_mongo_consumer_handler =
+            OnlineHistoryMongoConsumerHandler::new(msg_transfer_database);
+
+        let msg_transfer_service = MsgTransferSevice::new(
+            history_redis_consumer,
+            history_mongo_consumer,
+            history_redis_consumer_handler,
+            history_mongo_consumer_handler,
+        );
+
+        msg_transfer_service.run().await?;
+        Ok(())
     }
 
     pub async fn run(self) -> Result<()> {
         let MsgTransferSevice {
-            history_consumer,
-            mut batcher,
-            history_mongo_consumer_handler,
+            history_redis_consumer,
             history_mongo_consumer,
+            mut history_redis_consumer_handler,
+            history_mongo_consumer_handler,
         } = self;
 
-        batcher.start().await;
+        history_redis_consumer_handler.start().await;
 
         tokio::spawn(async move {
-            handle_redis_message(batcher, history_consumer).await;
+            history_redis_consumer_handler
+                .handle_redis_message(history_redis_consumer)
+                .await;
         });
 
         tokio::spawn(async move {

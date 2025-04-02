@@ -1,8 +1,15 @@
-use std::{collections::HashMap, error::Error, mem::swap, time::Duration};
+use std::{
+    collections::HashMap,
+    error::Error,
+    hash::{DefaultHasher, Hasher},
+    mem::swap,
+    time::Duration,
+};
 
 use tokio::{
     self,
     sync::mpsc::{self, Receiver, Sender},
+    task::JoinSet,
     time::{interval, Interval},
 };
 
@@ -13,6 +20,7 @@ pub struct BatcherConfig {
     max_count: usize,
     duration_ms: u64,
     buffer_size: usize,
+    worker_count: usize,
 }
 
 pub trait BatcherData: 'static + Send + Sync {
@@ -30,27 +38,22 @@ impl<Data> PayloadData<Data> {
     }
 }
 
-pub struct Batcher<Data, E, Handler>
+#[derive(Debug, Clone)]
+pub struct Batcher<Data>
 where
     Data: BatcherData,
-    E: Error,
-    Handler: BatcherHandler<Data = Data, Error = E>,
 {
     data_sender: Option<Sender<Data>>,
-    handler: Handler,
     config: BatcherConfig,
 }
 
-impl<Data, Handler, E> Batcher<Data, E, Handler>
+impl<Data> Batcher<Data>
 where
     Data: BatcherData,
-    E: Error,
-    Handler: BatcherHandler<Data = Data, Error = E>,
 {
-    pub fn new(config: &BatcherConfig, handler: Handler) -> Self {
+    pub fn new(config: &BatcherConfig) -> Self {
         Self {
             data_sender: None,
-            handler,
             config: config.clone(),
         }
     }
@@ -61,15 +64,16 @@ where
         }
     }
 
-    pub async fn start(&mut self) {
+    pub async fn start<Handler: BatcherHandler<Data = Data>>(&mut self, handler: Handler) {
         let (data_sender, data_receiver) = mpsc::channel(self.config.buffer_size);
         self.data_sender = Some(data_sender);
 
         let mut scheduler = Scheduler::new(
-            self.handler.clone(),
+            handler,
             self.config.max_count,
             self.config.duration_ms,
             data_receiver,
+            &self.config,
         );
 
         tokio::spawn(async move {
@@ -77,29 +81,58 @@ where
         });
     }
 }
-pub struct Scheduler<Handler: BatcherHandler<Data = Data>, Data: BatcherData> {
-    handler: Handler,
+pub struct Scheduler<Data: BatcherData> {
     max_count: usize,
     ticker: Interval,
     data_receiver: Receiver<Data>,
     values: HashMap<String, PayloadData<Data>>,
     count: usize,
+    workers: Vec<Sender<(String, PayloadData<Data>)>>,
+    join_set: JoinSet<()>,
+    worker_count: usize,
 }
 
-impl<Handler: BatcherHandler<Data = Data>, Data: BatcherData> Scheduler<Handler, Data> {
-    pub fn new(
+impl<Data: BatcherData> Drop for Scheduler<Data> {
+    fn drop(&mut self) {
+        self.join_set.abort_all();
+    }
+}
+
+impl<Data: BatcherData> Scheduler<Data> {
+    pub fn new<Handler: BatcherHandler<Data = Data>>(
         handler: Handler,
         max_count: usize,
         duration_ms: u64,
         data_receiver: Receiver<Data>,
+        config: &BatcherConfig,
     ) -> Self {
+        let mut join_set = JoinSet::default();
+        let mut workers: Vec<Sender<(String, PayloadData<Data>)>> = vec![];
+
+        for _ in 0..config.worker_count {
+            let (data_sender, mut data_receiver) = mpsc::channel(config.buffer_size);
+
+            workers.push(data_sender);
+            let handler_clone = handler.clone();
+
+            join_set.spawn(async move {
+                while let Some((key, payload)) = data_receiver.recv().await {
+                    if let Err(e) = handler_clone.handle(key, payload).await {
+                        tracing::error!("handler error: {}", e);
+                    }
+                }
+            });
+        }
+
         Scheduler {
-            handler,
             max_count,
             ticker: interval(Duration::from_millis(duration_ms)),
             data_receiver,
             values: Default::default(),
             count: 0,
+            join_set,
+            worker_count: config.worker_count,
+            workers,
         }
     }
 
@@ -129,13 +162,11 @@ impl<Handler: BatcherHandler<Data = Data>, Data: BatcherData> Scheduler<Handler,
         swap(&mut values, &mut self.values);
 
         for (key, payload) in values.into_iter() {
-            let handler_clone = self.handler.clone();
+            let index = share(&key) % (self.worker_count as u64);
 
-            tokio::spawn(async move {
-                if let Err(e) = handler_clone.handle(key, payload).await {
-                    tracing::error!("handler error: {}", e);
-                }
-            });
+            if let Err(e) = self.workers[index as usize].send((key, payload)).await {
+                tracing::error!("send error: {}", e);
+            }
         }
     }
 
@@ -160,6 +191,13 @@ impl<Handler: BatcherHandler<Data = Data>, Data: BatcherData> Scheduler<Handler,
             }
         }
     }
+}
+
+pub fn share(key: &str) -> u64 {
+    let mut hasher = DefaultHasher::new();
+
+    hasher.write(key.as_bytes());
+    hasher.finish()
 }
 
 #[async_trait]
@@ -223,15 +261,15 @@ mod test {
             max_count: 10,
             duration_ms: 500,
             buffer_size: 100,
+            worker_count: 10,
         };
 
         let mut batcher = Batcher {
             data_sender: None,
-            handler: TestBatcherHandler {},
             config,
         };
 
-        batcher.start().await;
+        batcher.start(TestBatcherHandler {}).await;
 
         for i in 0..100 {
             batcher.put(TestBatcherData(format!("data: {}", i))).await;

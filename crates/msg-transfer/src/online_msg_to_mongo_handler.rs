@@ -54,6 +54,11 @@ pub struct OnlineHistoryMongoConsumerHandler {
 }
 
 impl OnlineHistoryMongoConsumerHandler {
+
+    pub fn new(msg_transfer_database: Arc<dyn MsgTransferDatabase>,) -> Self {
+        OnlineHistoryMongoConsumerHandler { msg_transfer_database }
+    }
+
     pub async fn handle_chat_ws_2_mongo(&self, _key: &str, bytes: Vec<u8>) -> Result<()> {
         let mut msg_from_mq: MsgDataToMongoByMq = MsgDataToMongoByMq::decode(bytes.as_slice())?;
 

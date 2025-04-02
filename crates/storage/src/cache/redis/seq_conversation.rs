@@ -23,14 +23,12 @@ fn get_seq_malloc_key(conversation_id: &str) -> String {
 impl SeqConversationRedis {
     pub fn new(
         client: redis::Client,
-        lock_time: Duration,
-        data_time: Duration,
         seq_conversation_database: Arc<dyn SeqConversationDataBase>,
     ) -> SeqConversationRedis {
         SeqConversationRedis {
             client,
-            lock_time,
-            data_time,
+            lock_time: Duration::from_secs(3),
+            data_time: Duration::from_secs(60 * 60 * 24 * 365),
             seq_conversation_database,
         }
     }

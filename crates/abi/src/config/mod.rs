@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 pub struct MQTopcis {
     pub to_redis_topic: String,
     pub to_mongo_topic: String,
+    pub to_push_topic: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
