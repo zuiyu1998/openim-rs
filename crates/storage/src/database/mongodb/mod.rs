@@ -9,7 +9,7 @@ use abi::{
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct MongoDbConfig {
+pub struct MongodbConfig {
     pub host: String,
     pub port: u16,
     pub user: String,
@@ -19,7 +19,7 @@ pub struct MongoDbConfig {
     pub seq_conversation_name: String,
 }
 
-impl MongoDbConfig {
+impl MongodbConfig {
     pub fn server_url(&self) -> String {
         match (self.user.is_empty(), self.password.is_empty()) {
             (true, _) => {
@@ -42,7 +42,7 @@ impl MongoDbConfig {
     }
 }
 
-pub async fn new_mongo_database(config: &MongoDbConfig) -> Result<Database> {
+pub async fn new_mongo_database(config: &MongodbConfig) -> Result<Database> {
     let db = Client::with_uri_str(config.url())
         .await?
         .database(&config.database);

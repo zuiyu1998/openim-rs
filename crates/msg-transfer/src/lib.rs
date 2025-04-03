@@ -25,16 +25,16 @@ use openim_storage::{
     controller::msg_transfer::CommonMsgTransferDatabase,
     database::mongodb::{
         msg::MsgRepoMongodb, new_mongo_database, seq_conversation::SeqConversationMongodb,
-        seq_user::SeqUserMongodb, MongoDbConfig,
+        seq_user::SeqUserMongodb, MongodbConfig,
     },
 };
 
 pub struct MsgTransferSeviceConfig {
-    kafka: KafkaConfig,
-    topisc: MQTopcis,
-    batcher: BatcherConfig,
-    redis: RedisConfig,
-    mongo: MongoDbConfig,
+    pub kafka: KafkaConfig,
+    pub topics: MQTopcis,
+    pub batcher: BatcherConfig,
+    pub redis: RedisConfig,
+    pub mongo: MongodbConfig,
 }
 
 pub struct MsgTransferSevice {
@@ -64,11 +64,11 @@ impl MsgTransferSevice {
         let kafka_builder = KafkaBuilder::new(&config.kafka);
 
         let history_redis_consumer = kafka_builder
-            .get_stream_consumer(&config.topisc.to_redis_topic)
+            .get_stream_consumer(&config.topics.to_redis_topic)
             .await?;
 
         let history_mongo_consumer = kafka_builder
-            .get_stream_consumer(&config.topisc.to_mongo_topic)
+            .get_stream_consumer(&config.topics.to_mongo_topic)
             .await?;
 
         let batcher = Batcher::new(&config.batcher);
@@ -92,9 +92,9 @@ impl MsgTransferSevice {
         let msg_cache = Arc::new(MsgCacheRedis::new(redis_client.clone()));
 
         let producer_to_push =
-            Box::new(KafkaProducer::new(&config.kafka, &config.topisc.to_push_topic).await?);
+            Box::new(KafkaProducer::new(&config.kafka, &config.topics.to_push_topic).await?);
         let producer_to_mongo =
-            Box::new(KafkaProducer::new(&config.kafka, &config.topisc.to_mongo_topic).await?);
+            Box::new(KafkaProducer::new(&config.kafka, &config.topics.to_mongo_topic).await?);
 
         let msg_repo = Arc::new(MsgRepoMongodb::new(&database));
 

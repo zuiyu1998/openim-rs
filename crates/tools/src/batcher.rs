@@ -13,9 +13,11 @@ use tokio::{
     time::{interval, Interval},
 };
 
+use serde::{Deserialize, Serialize};
+
 use async_trait::async_trait;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct BatcherConfig {
     max_count: usize,
     duration_ms: u64,

@@ -1804,7 +1804,8 @@ name = "openim-msg-transfer"
 version = "0.1.0"
 dependencies = [
  "abi",
- "rpc",
+ "msg-transfer",
+ "openim-storage",
  "tools",
  "tracing-subscriber",
 ]

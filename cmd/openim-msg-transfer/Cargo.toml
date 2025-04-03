@@ -5,7 +5,8 @@ edition = "2024"
 
 [dependencies]
 abi = { path = "../../crates/abi" }
-rpc = { path = "../../crates/rpc" }
 tools = { path = "../../crates/tools" }
+msg-transfer = { path = "../../crates/msg-transfer" }
+openim-storage = { path = "../../crates/storage" }
 
 tracing-subscriber = { workspace = true }
