@@ -64,11 +64,17 @@ impl MsgTransferSevice {
         let kafka_builder = KafkaBuilder::new(&config.kafka);
 
         let history_redis_consumer = kafka_builder
-            .get_stream_consumer(&config.topics.to_redis_topic)
+            .get_stream_consumer(
+                &config.topics.to_redis_topic,
+                &config.topics.to_redis_topic_group_id,
+            )
             .await?;
 
         let history_mongo_consumer = kafka_builder
-            .get_stream_consumer(&config.topics.to_mongo_topic)
+            .get_stream_consumer(
+                &config.topics.to_mongo_topic,
+                &config.topics.to_mongo_topic_group_id,
+            )
             .await?;
 
         let batcher = Batcher::new(&config.batcher);

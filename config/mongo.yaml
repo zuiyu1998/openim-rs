@@ -1,7 +1,7 @@
 host: 127.0.0.1
 port: 27017
-user: 
-password:
+user: "openIM"
+password: "openIM123"
 database: openim_v3
 seq_user_name: seq_user
 seq_conversation_name: seq

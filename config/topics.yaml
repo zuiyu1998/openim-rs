@@ -1,3 +1,6 @@
 to_redis_topic: toRedis
+to_redis_topic_group_id: redis
 to_mongo_topic: toMongo
+to_mongo_topic_group_id: mongo
 to_push_topic: toPush
+to_push_topic_group_id: push

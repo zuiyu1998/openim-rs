@@ -20,7 +20,7 @@ pub struct KafkaConfig {
     pub password: Option<String>,
     pub connect_timeout: u16,
     pub timeout: u16,
-    pub broker: String,
+    pub brokers: Vec<String>,
     pub consumer: KafkaConsumerConfig,
     pub producer: KafkaProducerConfig,
 }
@@ -52,9 +52,11 @@ impl KafkaBuilder {
     pub async fn get_stream_consumer(
         &self,
         topic_name: &str,
+        group_id: &str,
     ) -> Result<StreamConsumer, KafkaError> {
         let consumer: StreamConsumer = ClientConfig::new()
-            .set("bootstrap.servers", &self.config.broker)
+            .set("bootstrap.servers", &self.config.brokers.join(","))
+            .set("group.id", group_id)
             .set("enable.auto.commit", "false")
             .set(
                 "session.timeout.ms",
@@ -81,7 +83,7 @@ impl KafkaBuilder {
         topic_name: &str,
     ) -> Result<FutureProducer, KafkaError> {
         let producer: FutureProducer = ClientConfig::new()
-            .set("bootstrap.servers", &self.config.broker)
+            .set("bootstrap.servers", &self.config.brokers.join(","))
             .set("message.timeout.ms", &self.config.timeout.to_string())
             .set(
                 "socket.timeout.ms",
@@ -98,19 +100,23 @@ impl KafkaBuilder {
             .create()
             .expect("Producer creation error");
 
-        Self::ensure_topic_exists(topic_name, &self.config.broker, self.config.connect_timeout)
-            .await?;
+        Self::ensure_topic_exists(
+            topic_name,
+            &self.config.brokers,
+            self.config.connect_timeout,
+        )
+        .await?;
 
         Ok(producer)
     }
 
     pub async fn ensure_topic_exists(
         topic_name: &str,
-        brokers: &str,
+        brokers: &[String],
         timeout: u16,
     ) -> Result<(), KafkaError> {
         let admin_client: AdminClient<DefaultClientContext> = ClientConfig::new()
-            .set("bootstrap.servers", brokers)
+            .set("bootstrap.servers", brokers.join(","))
             .set("socket.timeout.ms", timeout.to_string())
             .create()?;
 
