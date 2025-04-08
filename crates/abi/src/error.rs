@@ -5,7 +5,11 @@ use protocol::tonic::Status;
 use redis::RedisError;
 use serde_json::Error as SerdeJsonError;
 use thiserror::Error;
-use tools::{discover::DiscoverError, mq_producer::{rdkafka::error::KafkaError, MQError}};
+use tokio::task::JoinError;
+use tools::{
+    discover::DiscoverError,
+    mq_producer::{rdkafka::error::KafkaError, MQError},
+};
 
 #[derive(Debug, Error)]
 pub enum ErrorKind {
@@ -43,6 +47,8 @@ pub enum Error {
     MongodbError(#[from] MongodbError),
     #[error("kafka error: {0}")]
     KafkaError(#[from] KafkaError),
+    #[error("join error: {0}")]
+    JoinError(#[from] JoinError),
 }
 
 impl Error {

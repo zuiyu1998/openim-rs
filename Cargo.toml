@@ -36,3 +36,4 @@ async-trait = { version = "0.1" }
 redis = "0.29"
 mongodb = "3.2.1"
 bson = "2"
+futures = "0.3.30"

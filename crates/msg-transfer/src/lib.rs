@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use abi::{
     config::MQTopcis,
-    tokio,
+    tokio::{self},
     tools::{
         batcher::{Batcher, BatcherConfig},
         mq_producer::{
@@ -140,15 +140,23 @@ impl MsgTransferSevice {
 
         history_redis_consumer_handler.start().await;
 
-        tokio::spawn(async move {
+        let mut tasks = Vec::with_capacity(2);
+
+        let redis_task = tokio::spawn(async move {
             history_redis_consumer_handler
                 .handle_redis_message(history_redis_consumer)
                 .await;
         });
 
-        tokio::spawn(async move {
+        tasks.push(redis_task);
+
+        let mongo_task = tokio::spawn(async move {
             handle_mongo_message(history_mongo_consumer_handler, history_mongo_consumer).await;
         });
+
+        tasks.push(mongo_task);
+
+        futures::future::try_join_all(tasks).await?;
 
         Ok(())
     }
