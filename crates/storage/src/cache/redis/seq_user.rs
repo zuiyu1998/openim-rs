@@ -1,16 +1,16 @@
 use std::sync::Arc;
 
-use crate::{database::seq_user::SeqUserDataBase, cache::seq_user::SeqUserCache};
+use crate::{cache::seq_user::SeqUserCache, database::seq_user::SeqUserRepo};
 
 use abi::{async_trait::async_trait, redis, Result};
 
 pub struct SeqUserRedis {
     _client: redis::Client,
-    seq_user_database: Arc<dyn SeqUserDataBase>,
+    seq_user_database: Arc<dyn SeqUserRepo>,
 }
 
 impl SeqUserRedis {
-    pub fn new(client: redis::Client, seq_user_database: Arc<dyn SeqUserDataBase>) -> Self {
+    pub fn new(client: redis::Client, seq_user_database: Arc<dyn SeqUserRepo>) -> Self {
         Self {
             _client: client,
             seq_user_database,

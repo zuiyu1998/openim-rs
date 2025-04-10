@@ -158,7 +158,7 @@ impl MsgTransferDatabase for CommonMsgTransferDatabase {
 
         self.batch_insert_block_with_msgs(conversation_id, msgs, current_max_seq)
             .await?;
-        todo!()
+        Ok(())
     }
 
     async fn batch_insert_chat_2_cache(

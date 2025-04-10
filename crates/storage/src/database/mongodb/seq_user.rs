@@ -1,4 +1,4 @@
-use crate::database::seq_user::SeqUserDataBase;
+use crate::database::seq_user::SeqUserRepo;
 use abi::{
     async_trait::async_trait,
     mongodb::{
@@ -77,7 +77,7 @@ impl SeqUserMongodb {
 }
 
 #[async_trait]
-impl SeqUserDataBase for SeqUserMongodb {
+impl SeqUserRepo for SeqUserMongodb {
     async fn set_user_read_seq(
         &self,
         conversation_id: &str,
@@ -97,5 +97,48 @@ impl SeqUserDataBase for SeqUserMongodb {
 
     async fn get_user_read_seq(&self, conversation_id: &str, user_id: &str) -> Result<i64> {
         self.get_seq(conversation_id, user_id).await
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use abi::tokio;
+
+    #[tokio::test]
+    async fn test_seq_user_monodb() {
+        use super::SeqUserMongodb;
+        use crate::database::{
+            mongodb::{new_mongo_database, MongodbConfig},
+            seq_user::SeqUserRepo,
+        };
+
+        let config = MongodbConfig {
+            host: "127.0.0.1".to_string(),
+            port: 27017,
+            user: "openIM".to_string(),
+            password: "openIM123".to_string(),
+            database: "test".to_string(),
+            seq_user_name: "seq_user".to_string(),
+            seq_conversation_name: "seq_conversation_name".to_string(),
+        };
+
+        let conversation_id = "test_conversation".to_string();
+        let user_id = "1".to_string();
+        let seq = 10;
+
+        let database = new_mongo_database(&config).await.unwrap();
+
+        let seq_user = SeqUserMongodb::new(&database, &config.seq_user_name)
+            .await
+            .unwrap();
+
+        seq_user
+            .set_user_read_seq(&conversation_id, &user_id, seq)
+            .await
+            .unwrap();
+
+        let value = seq_user.get_seq(&conversation_id, &user_id).await.unwrap();
+
+        assert_eq!(value, 10);
     }
 }
