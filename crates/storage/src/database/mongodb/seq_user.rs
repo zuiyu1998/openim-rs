@@ -31,15 +31,14 @@ impl SeqUserMongodb {
         "conversation_id": conversation_id,
         };
 
-        if let Some(docu) = self.coll.find_one(query).await? {
-            if let Some(raw) = docu.get("read_seq") {
-                return Ok(raw.as_i64().unwrap());
-            } else {
-                Ok(0)
-            }
-        } else {
-            Ok(0)
-        }
+        let seq = self
+            .coll
+            .find_one(query)
+            .await?
+            .and_then(|doc| doc.get("read_seq").and_then(|bson| bson.as_i64()))
+            .unwrap_or_default();
+
+        Ok(seq)
     }
 
     pub async fn set_seq(

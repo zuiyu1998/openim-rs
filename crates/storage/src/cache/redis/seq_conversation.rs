@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use crate::{cache::SeqConversationCache, database::seq_conversation::SeqConversationDataBase};
+use crate::{cache::SeqConversationCache, database::seq_conversation::SeqConversationRepo};
 
 use abi::{
     async_trait::async_trait, protocol::pb::msg_processor, redis, utils::time_util, ErrorKind,
@@ -13,7 +13,7 @@ pub struct SeqConversationRedis {
     client: redis::Client,
     lock_time: Duration,
     data_time: Duration,
-    seq_conversation_database: Arc<dyn SeqConversationDataBase>,
+    seq_conversation_database: Arc<dyn SeqConversationRepo>,
 }
 
 fn get_seq_malloc_key(conversation_id: &str) -> String {
@@ -23,7 +23,7 @@ fn get_seq_malloc_key(conversation_id: &str) -> String {
 impl SeqConversationRedis {
     pub fn new(
         client: redis::Client,
-        seq_conversation_database: Arc<dyn SeqConversationDataBase>,
+        seq_conversation_database: Arc<dyn SeqConversationRepo>,
     ) -> SeqConversationRedis {
         SeqConversationRedis {
             client,

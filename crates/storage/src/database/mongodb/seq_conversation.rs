@@ -1,4 +1,4 @@
-use crate::database::seq_conversation::SeqConversationDataBase;
+use crate::database::seq_conversation::SeqConversationRepo;
 use abi::{
     async_trait::async_trait,
     mongodb::{
@@ -52,7 +52,7 @@ impl SeqConversationMongodb {
 }
 
 #[async_trait]
-impl SeqConversationDataBase for SeqConversationMongodb {
+impl SeqConversationRepo for SeqConversationMongodb {
     async fn malloc(&self, conversation_id: &str, size: i64) -> Result<i64> {
         if size < 0 {
             return Err(ErrorKind::SizeIsSmall.into());
@@ -109,14 +109,53 @@ impl SeqConversationDataBase for SeqConversationMongodb {
             "max_seq": 1
         };
 
-        if let Some(docu) = self.coll.find_one(query).projection(query_result).await? {
-            if let Some(raw) = docu.get("max_seq") {
-                return Ok(raw.as_i64().unwrap());
-            } else {
-                Ok(0)
-            }
-        } else {
-            Ok(0)
-        }
+        let max_seq = self
+            .coll
+            .find_one(query)
+            .projection(query_result)
+            .await?
+            .and_then(|doc| doc.get("max_seq").and_then(|bson| bson.as_i64()))
+            .unwrap_or_default();
+
+        Ok(max_seq)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use abi::tokio;
+
+    #[tokio::test]
+    async fn test_seq_conversation_monodb() {
+        use super::SeqConversationMongodb;
+        use crate::database::{
+            mongodb::{new_mongo_database, MongodbConfig},
+            seq_conversation::SeqConversationRepo,
+        };
+
+        let config = MongodbConfig {
+            host: "127.0.0.1".to_string(),
+            port: 27017,
+            user: "openIM".to_string(),
+            password: "openIM123".to_string(),
+            database: "test".to_string(),
+            seq_user_name: "seq_user".to_string(),
+            seq_conversation_name: "seq_conversation_name".to_string(),
+        };
+
+        let conversation_id = "test_conversation".to_string();
+        let seq = 10;
+
+        let database = new_mongo_database(&config).await.unwrap();
+
+        let seq_user = SeqConversationMongodb::new(&database, &config.seq_conversation_name)
+            .await
+            .unwrap();
+
+        seq_user.malloc(&conversation_id, seq).await.unwrap();
+
+        let value = seq_user.get_max_seq(&conversation_id).await.unwrap();
+
+        assert_eq!(value, 10);
     }
 }
