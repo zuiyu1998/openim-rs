@@ -24,7 +24,7 @@ use openim_storage::{
     },
     controller::msg_transfer::CommonMsgTransferDatabase,
     database::mongodb::{
-        msg::MsgRepoMongodb, new_mongo_database, seq_conversation::SeqConversationMongodb,
+        msg::MsgMongodb, new_mongo_database, seq_conversation::SeqConversationMongodb,
         seq_user::SeqUserMongodb, MongodbConfig,
     },
 };
@@ -102,7 +102,7 @@ impl MsgTransferSevice {
         let producer_to_mongo =
             Box::new(KafkaProducer::new(&config.kafka, &config.topics.to_mongo_topic).await?);
 
-        let msg_repo = Arc::new(MsgRepoMongodb::new(&database));
+        let msg_repo = Arc::new(MsgMongodb::new(&database));
 
         let msg_transfer_database = Arc::new(CommonMsgTransferDatabase::new(
             seq_user_cache,

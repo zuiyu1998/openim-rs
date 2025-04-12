@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 abi = { path = "../abi" }
 serde = { workspace = true }
+fake = { workspace = true, features = ["derive"] }

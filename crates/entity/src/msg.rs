@@ -2,8 +2,9 @@ use std::collections::HashMap;
 
 use abi::protocol::pb::openim_sdkws::MsgData;
 use serde::{Deserialize, Serialize};
+use fake::Dummy;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Dummy)]
 pub struct OfflinePushModel {
     pub title: String,
     pub desc: String,
@@ -12,7 +13,7 @@ pub struct OfflinePushModel {
     pub ios_badge_count: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Dummy)]
 pub struct MsgDocModel {
     pub doc_id: String,
     pub msgs: Vec<MsgInfoModel>,
@@ -44,7 +45,7 @@ impl MsgDocModel {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default, Dummy)]
 pub struct MsgDataModel {
     pub send_id: String,
     pub recv_id: String,
@@ -108,10 +109,10 @@ impl MsgDataModel {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Dummy)]
 pub struct RevokeModel {}
 
-#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone, Dummy)]
 pub struct MsgInfoModel {
     pub msg: MsgDataModel,
     pub revoke: Option<RevokeModel>,

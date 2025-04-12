@@ -11,3 +11,4 @@ entity = { path = "../entity" }
 tracing = { workspace = true }
 serde = { workspace = true }
 bson = { workspace = true }
+fake = { workspace = true }
