@@ -80,10 +80,13 @@ mod test {
             return;
         }
 
+        let len = doc.msgs.len();
+
         let msg_data: MsgDataModel = Faker.fake();
 
         msg.create(doc).await.unwrap();
-
         msg.update_with_msg(&doc_id, 0, &msg_data).await.unwrap();
+
+        msg.update_with_msg(&doc_id, len + 2, &msg_data).await.unwrap();
     }
 }
