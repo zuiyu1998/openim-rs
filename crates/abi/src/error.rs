@@ -19,6 +19,8 @@ pub enum ErrorKind {
     MsgDataIsNil,
     #[error("unknown sessionType")]
     UnknowedSessionType,
+    #[error("size must be greater than 0")]
+    SizeIsNegative,
     #[error("size is small")]
     SizeIsSmall,
     #[error("malloc unknown state: {0}")]

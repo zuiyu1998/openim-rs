@@ -148,13 +148,20 @@ mod test {
 
         let database = new_mongo_database(&config).await.unwrap();
 
-        let seq_user = SeqConversationMongodb::new(&database, &config.seq_conversation_name)
+        let seq_conversation =
+            SeqConversationMongodb::new(&database, &config.seq_conversation_name)
+                .await
+                .unwrap();
+
+        seq_conversation
+            .malloc(&conversation_id, seq)
             .await
             .unwrap();
 
-        seq_user.malloc(&conversation_id, seq).await.unwrap();
-
-        let value = seq_user.get_max_seq(&conversation_id).await.unwrap();
+        let value = seq_conversation
+            .get_max_seq(&conversation_id)
+            .await
+            .unwrap();
 
         assert_eq!(value, 10);
     }

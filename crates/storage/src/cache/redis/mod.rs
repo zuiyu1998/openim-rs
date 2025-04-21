@@ -1,7 +1,7 @@
-pub mod seq_user;
-pub mod seq_conversation;
 pub mod consts;
 pub mod msg;
+pub mod seq_conversation;
+pub mod seq_user;
 
 pub use seq_user::SeqUserRedis;
 

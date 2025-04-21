@@ -50,7 +50,7 @@ mod test {
     use entity::msg::{MsgDataModel, MsgDocModel};
 
     #[tokio::test]
-    async fn test_seq_conversation_monodb() {
+    async fn test_msg_monodb() {
         use super::MsgMongodb;
         use crate::database::{
             mongodb::{new_mongo_database, MongodbConfig},

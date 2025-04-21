@@ -20,6 +20,56 @@ fn get_seq_malloc_key(conversation_id: &str) -> String {
     get_malloc_seq_key(conversation_id)
 }
 
+pub enum MallocResult {
+    Unknown(i64),
+    Success {
+        curr_seq: i64,
+        last_seq: i64,
+        malloc_time: i64,
+    },
+    NotFound {
+        lock_value: i64,
+        malloc_time: i64,
+    },
+    Locked,
+    Exceeded {
+        curr_seq: i64,
+        last_seq: i64,
+        lock_value: i64,
+        malloc_time: i64,
+    },
+}
+
+impl Default for MallocResult {
+    fn default() -> Self {
+        MallocResult::Unknown(4)
+    }
+}
+
+impl From<Vec<i64>> for MallocResult {
+    fn from(value: Vec<i64>) -> Self {
+        match value[0] {
+            0 => MallocResult::Success {
+                curr_seq: value[1],
+                last_seq: value[2],
+                malloc_time: value[3],
+            },
+            1 => MallocResult::NotFound {
+                lock_value: value[1],
+                malloc_time: value[2],
+            },
+            2 => MallocResult::Locked,
+            3 => MallocResult::Exceeded {
+                curr_seq: value[1],
+                last_seq: value[2],
+                lock_value: value[3],
+                malloc_time: value[4],
+            },
+            _ => MallocResult::Unknown(value[0]),
+        }
+    }
+}
+
 impl SeqConversationRedis {
     pub fn new(
         client: redis::Client,
@@ -48,11 +98,11 @@ impl SeqConversationRedis {
         local key = KEYS[1]
         local lockValue = ARGV[1]
         local dataSecond = ARGV[2]
-        local curr_seq = tonumber(ARGV[3])
-        local last_seq = tonumber(ARGV[4])
+        local currSeq = tonumber(ARGV[3])
+        local lastSeq = tonumber(ARGV[4])
         local mallocTime = ARGV[5]
         if redis.call("EXISTS", key) == 0 then
-            redis.call("HSET", key, "CURR", curr_seq, "LAST", last_seq, "TIME", mallocTime)
+            redis.call("HSET", key, "CURR", currSeq, "LAST", lastSeq, "TIME", mallocTime)
             redis.call("EXPIRE", key, dataSecond)
             return 1
         end
@@ -60,7 +110,7 @@ impl SeqConversationRedis {
             return 2
         end
         redis.call("HDEL", key, "LOCK")
-        redis.call("HSET", key, "CURR", curr_seq, "LAST", last_seq, "TIME", mallocTime)
+        redis.call("HSET", key, "CURR", currSeq, "LAST", lastSeq, "TIME", mallocTime)
         redis.call("EXPIRE", key, dataSecond)
         return 0
         "#;
@@ -163,41 +213,53 @@ impl SeqConversationRedis {
 
     async fn malloc_time(&self, conversation_id: &str, size: i64) -> Result<(i64, i64)> {
         if size < 0 {
-            return Err(ErrorKind::SizeIsSmall.into());
+            return Err(ErrorKind::SizeIsNegative.into());
         }
 
         let key = get_seq_malloc_key(conversation_id);
 
         for _ in 0..10 {
-            let states = self._malloc(&key, size).await?;
+            let res = self.malloc_size(&key, size).await?;
 
-            match states[0] {
-                //success
-                0 => {
-                    return Ok((states[1], states[3]));
+            match res {
+                MallocResult::Success {
+                    curr_seq,
+                    last_seq: _,
+                    malloc_time,
+                } => {
+                    return Ok((curr_seq, malloc_time));
                 }
-                // not found
-                1 => {
+                MallocResult::NotFound {
+                    lock_value,
+                    malloc_time,
+                } => {
                     let malloc_size = self.get_malloc_size(conversation_id, size);
                     let seq = self
                         .seq_conversation_database
                         .malloc(conversation_id, size)
                         .await?;
 
-                    self.set_seq_retry(&key, states[1], seq + size, seq + malloc_size, states[2])
-                        .await;
+                    self.set_seq_retry(
+                        &key,
+                        lock_value,
+                        seq + size,
+                        seq + malloc_size,
+                        malloc_time,
+                    )
+                    .await;
 
-                    return Ok((states[1], states[3]));
+                    return Ok((seq, malloc_time));
                 }
-                //locked
-                2 => {
-                    todo!()
+                MallocResult::Locked => {
+                    continue;
                 }
                 // exceeded cache max value
-                3 => {
-                    let curr_seq = states[1];
-                    let last_seq = states[2];
-                    let mill = states[4];
+                MallocResult::Exceeded {
+                    curr_seq,
+                    last_seq,
+                    lock_value,
+                    malloc_time,
+                } => {
                     let malloc_size = self.get_malloc_size(conversation_id, size);
                     let seq = self
                         .seq_conversation_database
@@ -207,10 +269,10 @@ impl SeqConversationRedis {
                     if last_seq == seq {
                         self.set_seq_retry(
                             &key,
-                            states[3],
+                            lock_value,
                             curr_seq + size,
                             seq + malloc_size,
-                            mill,
+                            malloc_time,
                         )
                         .await;
                     } else {
@@ -218,17 +280,17 @@ impl SeqConversationRedis {
                             "malloc seq not equal cache last seq. args is: conversation_id: {}, curr_seq: {}, last_seq: {}, seq: {}",
                             conversation_id, curr_seq,last_seq,seq
                         );
-                        return Ok((seq, mill));
+                        return Ok((seq, malloc_time));
                     }
                 }
-                _ => {
+                MallocResult::Unknown(state) => {
                     tracing::error!(
-                        "malloc seq unknown state.state: {}, conversation_id: {}, size: {}",
-                        states[0],
+                        "malloc seq unknown state. args is: state: {}, conversation_id: {}, size: {}",
+                        state,
                         conversation_id,
                         size
                     );
-                    return Err(ErrorKind::MallocUnknownState(states[0]).into());
+                    return Err(ErrorKind::MallocUnknownState(state).into());
                 }
             }
         }
@@ -242,7 +304,7 @@ impl SeqConversationRedis {
         Err(ErrorKind::MallocLockTimeout.into())
     }
 
-    async fn _malloc(&self, key: &str, size: i64) -> Result<Vec<i64>> {
+    async fn malloc_size(&self, key: &str, size: i64) -> Result<MallocResult> {
         let script = r#"
             local key = KEYS[1]
             local size = tonumber(ARGV[1])
@@ -263,13 +325,13 @@ impl SeqConversationRedis {
                 table.insert(result, 2)
                 return result
             end
-            local curr_seq = tonumber(redis.call("HGET", key, "CURR"))
-            local last_seq = tonumber(redis.call("HGET", key, "LAST"))
+            local currSeq = tonumber(redis.call("HGET", key, "CURR"))
+            local lastSeq = tonumber(redis.call("HGET", key, "LAST"))
             if size == 0 then
                 redis.call("EXPIRE", key, dataSecond)
                 table.insert(result, 0)
-                table.insert(result, curr_seq)
-                table.insert(result, last_seq)
+                table.insert(result, currSeq)
+                table.insert(result, lastSeq)
                 local setTime = redis.call("HGET", key, "TIME")
                 if setTime then
                     table.insert(result, setTime)	
@@ -278,16 +340,16 @@ impl SeqConversationRedis {
                 end
                 return result
             end
-            local max_seq = curr_seq + size
-            if max_seq > last_seq then
+            local maxSeq = currSeq + size
+            if maxSeq > lastSeq then
                 local lockValue = math.random(0, 999999999)
                 redis.call("HSET", key, "LOCK", lockValue)
-                redis.call("HSET", key, "CURR", last_seq)
+                redis.call("HSET", key, "CURR", lastSeq)
                 redis.call("HSET", key, "TIME", mallocTime)
                 redis.call("EXPIRE", key, lockSecond)
                 table.insert(result, 3)
-                table.insert(result, curr_seq)
-                table.insert(result, last_seq)
+                table.insert(result, currSeq)
+                table.insert(result, lastSeq)
                 table.insert(result, lockValue)
                 table.insert(result, mallocTime)
                 return result
@@ -314,7 +376,7 @@ impl SeqConversationRedis {
             .arg(malloc_time)
             .invoke_async(&mut conn)
             .await?;
-        Ok(result)
+        Ok(result.into())
     }
 }
 
@@ -323,5 +385,59 @@ impl SeqConversationCache for SeqConversationRedis {
     async fn malloc(&self, conversation_id: &str, size: i64) -> Result<i64> {
         let (seq, _) = self.malloc_time(conversation_id, size).await?;
         Ok(seq)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::sync::Arc;
+
+    use abi::tokio;
+
+    use crate::database::mongodb::{
+        new_mongo_database, seq_conversation::SeqConversationMongodb, MongodbConfig,
+    };
+
+    #[tokio::test]
+    async fn test_seq_user_redis() {
+        use super::SeqConversationRedis;
+        use crate::cache::redis::{
+            new_redis_client, seq_conversation::SeqConversationCache, RedisConfig,
+        };
+
+        let redis_config = RedisConfig {
+            host: "192.168.0.230".to_string(),
+            port: 6379,
+        };
+
+        let config = MongodbConfig {
+            host: "127.0.0.1".to_string(),
+            port: 27017,
+            user: "openIM".to_string(),
+            password: "openIM123".to_string(),
+            database: "test".to_string(),
+            seq_user_name: "seq_user".to_string(),
+            seq_conversation_name: "seq_conversation_name".to_string(),
+        };
+
+        let client = new_redis_client(&redis_config).unwrap();
+
+        let database = new_mongo_database(&config).await.unwrap();
+
+        let seq_conversation =
+            SeqConversationMongodb::new(&database, &config.seq_conversation_name)
+                .await
+                .unwrap();
+        let conversation_id = "test_conversation".to_string();
+        let seq = 10;
+
+        let seq_conversation_redis = SeqConversationRedis::new(client, Arc::new(seq_conversation));
+
+        let malloc_seq = seq_conversation_redis
+            .malloc(&conversation_id, seq)
+            .await
+            .unwrap();
+
+        assert_eq!(malloc_seq, seq);
     }
 }
